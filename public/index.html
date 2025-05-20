@@ -6,21 +6,51 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <style>
-    html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
-    #map{position:absolute;top:0;left:0;right:0;bottom:0}
-    .card-container{position:absolute;left:0;right:0;bottom:0;height:260px;pointer-events:none;display:flex;justify-content:center;background:linear-gradient(0deg,rgba(0,0,0,.25),rgba(0,0,0,0));backdrop-filter:blur(4px)}
-    .swiper{width:92%;height:220px;margin:auto;pointer-events:auto}
-    .swiper-slide{background:#fff;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.15);overflow:hidden;display:flex;flex-direction:column;padding:16px}
-    .swiper-slide h3{margin:0 0 4px;font-size:18px;font-weight:600}
-    .swiper-slide p{margin:0 0 8px;font-size:14px;color:#555;line-height:1.35}
-    .swiper-slide .meta{margin-top:auto;font-size:12px;color:#888}
-    .marker{width:36px;height:36px;border-radius:50%;background:#39d353;border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.15);transition:transform .2s ease}
-    .marker.passive{background:#e4e4e4}
-    .marker.active{transform:scale(1.2)}
+    html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f6f6f6}
+    #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
+    .map-controls{position:absolute;top:80px;right:16px;z-index:10;display:flex;flex-direction:column;gap:8px}
+    .map-btn{width:44px;height:44px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.10);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:box-shadow .2s}
+    .map-btn:active{box-shadow:0 2px 12px rgba(0,0,0,.18)}
+    .card-container{position:absolute;left:0;right:0;bottom:0;height:320px;pointer-events:none;display:flex;justify-content:center;background:linear-gradient(0deg,rgba(0,0,0,.25),rgba(0,0,0,0));backdrop-filter:blur(4px);z-index:5}
+    .swiper{width:96%;height:280px;margin:auto;pointer-events:auto;overflow:visible}
+    .swiper-slide{opacity:0;visibility:hidden;transform:translateY(120vh) scale(.8);transition:transform .4s cubic-bezier(.25,.8,.25,1),opacity .3s ease,visibility 0s linear .3s,box-shadow .3s ease;will-change:transform,opacity,visibility}
+    .swiper-slide.visible{opacity:1;visibility:visible}
+    .swiper-slide.visible.active-stack{transform:translateY(0) scale(1) rotate(0deg);box-shadow:0 12px 32px rgba(0,0,0,.22);z-index:3}
+    .swiper-slide.visible.next-stack-1{transform:translateY(30px) scale(.94) rotate(3deg);box-shadow:0 8px 20px rgba(0,0,0,.15);z-index:2}
+    .swiper-slide.visible.next-stack-2{transform:translateY(60px) scale(.88) rotate(-3.5deg);box-shadow:0 4px 12px rgba(0,0,0,.10);z-index:1}
+    .swiper-slide.visible.next-stack-3{transform:translateY(90px) scale(.82) rotate(2.5deg);box-shadow:0 2px 8px rgba(0,0,0,.05);z-index:0}
+    .slide-img{width:100%;height:140px;object-fit:cover;border-radius:28px 28px 0 0;margin:0;position:relative;z-index:1}
+    .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:140px;z-index:2;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;}
+    .slide-tags{display:flex;gap:8px;margin:14px 0 0 14px;}
+    .slide-tag{background:rgba(0,0,0,0.65);color:#fff;font-size:13px;padding:3px 10px;border-radius:8px;display:flex;align-items:center;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,.10)}
+    .slide-friends{display:flex;align-items:center;gap:6px;margin:0 0 14px 14px;}
+    .friend-avatar{width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.10)}
+    .slide-content{padding:18px 20px 0 20px;display:flex;flex-direction:column;gap:4px}
+    .slide-title{font-size:20px;font-weight:700;margin:0;line-height:1.2}
+    .slide-meta{font-size:14px;color:#888;margin-bottom:2px}
+    .slide-actions{display:flex;align-items:center;justify-content:space-between;padding:0 20px 14px 20px;margin-top:18px}
+    .slide-action{display:flex;align-items:center;gap:0;font-size:0;color:#444;background:#f7f7f7;border-radius:10px;padding:8px 0;width:44px;justify-content:center;cursor:pointer;transition:background .15s}
+    .slide-action.selected{background:#e0f7e9;color:#1a7f4e}
+    .slide-action svg{width:22px;height:22px}
+    .marker{width:56px;height:56px;border-radius:18px;background:#fff;border:3px solid #fff;box-shadow:0 2px 12px rgba(57,211,83,0.18),0 0 0 2px rgba(0,0,0,.10);transition:transform .2s,box-shadow .2s;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
+    .marker.passive{border-color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.10);opacity:0.85}
+    .marker.active{border-color:#39d353;box-shadow:0 0 0 6px rgba(57,211,83,0.25),0 2px 16px rgba(57,211,83,0.18);z-index:2;transform:scale(1.12)}
+    .marker-img{width:48px;height:48px;border-radius:14px;object-fit:cover}
+    .marker-badge{position:absolute;bottom:-4px;right:-4px;background:#fff;border-radius:50%;padding:2px;box-shadow:0 1px 4px rgba(0,0,0,.10);z-index:2}
+    .marker-badge-inner{background:#39d353;color:#fff;font-size:15px;font-weight:700;border-radius:50%;padding:2px 7px;display:flex;align-items:center;gap:2px;}
+    .marker-badge-inner svg{width:16px;height:16px;vertical-align:middle;}
+    @media (max-width:600px){
+      .swiper{width:100%}
+      .card-container{height:340px}
+    }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div class="map-controls">
+  <div class="map-btn" id="zoom-in">+</div>
+  <div class="map-btn" id="zoom-out">−</div>
+</div>
 <div class="card-container">
   <div class="swiper">
     <div class="swiper-wrapper" id="slides"></div>
@@ -30,55 +60,121 @@
 <script src="https://mapgl.2gis.com/api/js"></script>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
+  const AVATARS = [
+    'https://randomuser.me/api/portraits/men/32.jpg',
+    'https://randomuser.me/api/portraits/women/44.jpg',
+    'https://randomuser.me/api/portraits/men/45.jpg',
+    'https://randomuser.me/api/portraits/women/65.jpg',
+    'https://randomuser.me/api/portraits/men/77.jpg',
+    'https://randomuser.me/api/portraits/women/88.jpg',
+    'https://randomuser.me/api/portraits/men/99.jpg',
+    'https://randomuser.me/api/portraits/women/12.jpg',
+  ];
+  const PHOTOS = [
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1526178613658-3f1622045557?auto=format&fit=crop&w=600&q=80',
+  ];
+  const TAGS = [
+    {icon:'⭐', text:'4.3'},
+    {icon:'⚡', text:'Быстрая готовка'},
+    {icon:'👥', text:'Были друзья'},
+    {icon:'💳', text:'Средний чек 500₽'},
+    {icon:'⏰', text:'Открыто до 24:00'},
+  ];
   const LAT_MIN = 55.70, LAT_MAX = 55.80;
   const LNG_MIN = 37.55, LNG_MAX = 37.75;
-
+  function randomFrom(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+  function randomTags() {
+    const shuffled = TAGS.sort(()=>0.5-Math.random());
+    return shuffled.slice(0,2+Math.floor(Math.random()*2));
+  }
   const companies = Array.from({length:50}, (_,i)=>({
       id:i,
-      name:`Company ${i+1}`,
-      desc:"This is a mock description for the company that can be replaced with real data.",
+      name:`Sempre ${i+1}`,
+      desc:"Были ваши друзья. Средний чек 500₽. Открыто до 24:00.",
       coords:[
         +(LNG_MIN + Math.random()*(LNG_MAX-LNG_MIN)).toFixed(6),
         +(LAT_MIN + Math.random()*(LAT_MAX-LAT_MIN)).toFixed(6)
-      ]
+      ],
+      photo: randomFrom(PHOTOS),
+      friends: Array.from({length:Math.floor(Math.random()*3)+1},()=>randomFrom(AVATARS)),
+      tags: randomTags(),
+      rating: 4.3
   }));
-
   const map = new mapgl.Map('map', {
     key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
     center:[37.62,55.75],
     zoom:11
   });
-
   const markers = [];
-  companies.forEach(c => {
+  companies.forEach((c, idx) => {
     const el = document.createElement('div');
     el.className = 'marker passive';
+    el.innerHTML = `<img class="marker-img" src="${c.photo}" alt=""/>
+      <div class="marker-badge"><div class="marker-badge-inner"><svg viewBox='0 0 20 20'><circle cx='10' cy='10' r='10' fill='#39d353'/><text x='10' y='15' text-anchor='middle' font-size='13' fill='#fff' font-weight='bold'>★</text></svg></div></div>`;
     const mk = new mapgl.HtmlMarker(map, {coordinates:c.coords, html:el});
     markers.push({marker: mk, el});
   });
-
   const slideFrag = document.createDocumentFragment();
-  companies.forEach(c => {
+  companies.forEach((c, idx) => {
     const slide = document.createElement('div');
     slide.className = 'swiper-slide';
-    slide.innerHTML = `<h3>${c.name}</h3><p>${c.desc}</p><div class="meta">Lat: ${c.coords[1].toFixed(3)}, Lng: ${c.coords[0].toFixed(3)}</div>`;
+    slide.innerHTML = `
+      <div style='position:relative;'>
+        <img class="slide-img" src="${c.photo}" alt=""/>
+        <div class="slide-img-overlay">
+          <div class="slide-tags">${c.tags.map(t=>`<span class='slide-tag'>${t.icon} ${t.text}</span>`).join('')}</div>
+          <div class="slide-friends">${c.friends.map(f=>`<img class='friend-avatar' src='${f}'/>`).join('')}</div>
+        </div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-title">${c.name}</div>
+        <div class="slide-meta">Открыто до 24:00 • Большая Дмитровка, 22 ст1</div>
+      </div>
+      <div class="slide-actions">
+        <div class="slide-action" data-action="walk"><svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-1 7.5c.28-.5.78-.5 1.06 0l2.5 4.5c.18.32.07.73-.25.91a.68.68 0 0 1-.91-.25l-1.4-2.5-1.4 2.5a.68.68 0 0 1-.91.25.68.68 0 0 1-.25-.91l2.5-4.5z"/></svg></div>
+        <div class="slide-action" data-action="bookmark"><svg viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v18l8-5.33L20 22V4a2 2 0 0 0-2-2H6z"/></svg></div>
+        <div class="slide-action" data-action="like"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 1.01 4.5 2.09C13.09 4.01 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+        <div class="slide-action" data-action="dislike"><svg viewBox="0 0 24 24"><path d="M12 2.65l1.45 1.32C18.6 8.64 22 11.72 22 15.5c0 3.08-2.42 5.5-5.5 5.5-1.74 0-3.41-1.01-4.5-2.09C10.91 20.99 9.24 22 7.5 22 4.42 22 2 19.58 2 16.5c0-3.78 3.4-6.86 8.55-11.54L12 2.65z"/></svg></div>
+      </div>
+    `;
     slideFrag.appendChild(slide);
   });
   document.getElementById('slides').appendChild(slideFrag);
 
+  function updateVisibility(sw){
+    const slides = sw.slides;
+    for(let i=0;i<slides.length;i++){
+      slides[i].classList.remove('visible','active-stack','next-stack-1','next-stack-2','next-stack-3');
+    }
+    const idx = sw.activeIndex;
+    const order = [idx,idx+1,idx+2,idx+3];
+    const classes = ['active-stack','next-stack-1','next-stack-2','next-stack-3'];
+    order.forEach((slideIdx,orderPos)=>{
+      if(slideIdx<slides.length){
+        slides[slideIdx].classList.add('visible',classes[orderPos]);
+      }
+    });
+  }
+
   const swiper = new Swiper('.swiper', {
-    slidesPerView:1,
-    spaceBetween:12,
-    centeredSlides:true,
-    loop:false,
-    grabCursor:true,
-    resistanceRatio:0.5,
-    on:{
-      init(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); },
-      slideChange(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); }
+    direction: 'vertical',
+    effect: 'slide',
+    slidesPerView: 1,
+    spaceBetween: 0,
+    centeredSlides: true,
+    loop: false,
+    grabCursor: true,
+    resistanceRatio: 0.5,
+    on: {
+      init(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); updateVisibility(this); },
+      slideChange(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); updateVisibility(this); }
     }
   });
-
   function highlightMarker(idx){
     markers.forEach((m,i)=>{
       if(i===idx){
@@ -90,18 +186,18 @@
       }
     });
   }
-
   function flyToMarker(idx){
     const {coords} = companies[idx];
     map.setCenter(coords);
-    map.setZoom(14);
+    map.setZoom(15);
   }
-
   markers.forEach((m,i)=>{
     m.el.addEventListener('click',()=>{
       swiper.slideTo(i);
     });
   });
+  document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1);
+  document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1);
 </script>
 </body>
 </html>
