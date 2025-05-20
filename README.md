@@ -1,8 +1,9 @@
 # map-advices
 
-Prototype web application for exploring companies. The project currently
-contains a minimal Express setup that serves a **Hello World** page. This
-provides a starting point that can be accessed from a phone or desktop browser.
+Prototype web application for exploring companies. The application now displays
+a [MapGL](https://docs.2gis.com/en/mapgl) map of Moscow with 50 random markers
+representing mock company names. It can be accessed from a phone or desktop
+browser and serves as a starting point for further development.
 
 ## Requirements
 
