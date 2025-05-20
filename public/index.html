@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moscow Map</title>
     <style>
-        html, body, #map {
+        html, body {
             height: 100%;
             margin: 0;
             padding: 0;
         }
         #map {
+            position: absolute;
+            inset: 0;
             touch-action: none;
         }
         .marker {
@@ -22,11 +24,36 @@
             transform: translate(-50%, -100%);
             pointer-events: none;
         }
+        #cards {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 1rem;
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            box-sizing: border-box;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        #cards::-webkit-scrollbar {
+            display: none;
+        }
+        .card {
+            flex: 0 0 80%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            padding: 1rem;
+            scroll-snap-align: center;
+        }
     </style>
     <script src="https://mapgl.2gis.com/api/js"></script>
 </head>
 <body>
     <div id="map"></div>
+    <div id="cards"></div>
     <script>
         const map = new mapgl.Map('map', {
             key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
@@ -48,11 +75,41 @@
             });
         }
 
+        const companies = [];
+
         for (let i = 1; i <= 50; i++) {
             const lon = randomInRange(37.59, 37.65);
             const lat = randomInRange(55.73, 55.77);
-            addMarker('Company ' + i, [lon, lat]);
+            const coords = [lon, lat];
+            addMarker('Company ' + i, coords);
+            companies.push({ name: 'Company ' + i, coordinates: coords });
         }
+
+        const cardsContainer = document.getElementById('cards');
+
+        companies.forEach((company) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.textContent = company.name;
+            card.dataset.lon = company.coordinates[0];
+            card.dataset.lat = company.coordinates[1];
+            cardsContainer.appendChild(card);
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+                    const card = entry.target;
+                    const lon = parseFloat(card.dataset.lon);
+                    const lat = parseFloat(card.dataset.lat);
+                    if (!isNaN(lon) && !isNaN(lat)) {
+                        map.setCenter([lon, lat]);
+                    }
+                }
+            });
+        }, { root: cardsContainer, threshold: 0.6 });
+
+        Array.from(cardsContainer.children).forEach((el) => observer.observe(el));
     </script>
 </body>
 </html>
