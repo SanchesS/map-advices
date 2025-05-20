@@ -1,0 +1,13 @@
+{
+  "name": "map-advices",
+  "version": "0.1.0",
+  "description": "Prototype web app for exploring companies.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
