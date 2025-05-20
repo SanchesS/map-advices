@@ -30,23 +30,25 @@
             right: 0;
             bottom: 0;
             padding: 1rem;
+            height: 40%;
             display: flex;
-            gap: 1rem;
-            overflow-x: auto;
-            box-sizing: border-box;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-        }
-        #cards::-webkit-scrollbar {
-            display: none;
+            justify-content: center;
+            align-items: flex-end;
+            pointer-events: none;
         }
         .card {
-            flex: 0 0 80%;
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: calc(100% - 2rem);
+            max-width: 360px;
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             padding: 1rem;
-            scroll-snap-align: center;
+            transform-origin: bottom center;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            pointer-events: auto;
         }
     </style>
     <script src="https://mapgl.2gis.com/api/js"></script>
@@ -96,20 +98,53 @@
             cardsContainer.appendChild(card);
         });
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
-                    const card = entry.target;
-                    const lon = parseFloat(card.dataset.lon);
-                    const lat = parseFloat(card.dataset.lat);
-                    if (!isNaN(lon) && !isNaN(lat)) {
-                        map.setCenter([lon, lat]);
-                    }
+        const cards = Array.from(cardsContainer.children);
+        let currentIndex = 0;
+
+        function updateStack() {
+            cards.forEach((card, i) => {
+                const offset = i - currentIndex;
+                if (offset < 0) {
+                    card.style.display = 'none';
+                } else {
+                    card.style.display = 'block';
+                    card.style.zIndex = cards.length - i;
+                    const translate = Math.min(offset * 10, 30);
+                    const scale = Math.max(1 - offset * 0.05, 0.85);
+                    card.style.transform = `translate(-50%, -${translate}px) scale(${scale})`;
+                    card.style.opacity = offset === 0 ? '1' : '0.7';
                 }
             });
-        }, { root: cardsContainer, threshold: 0.6 });
 
-        Array.from(cardsContainer.children).forEach((el) => observer.observe(el));
+            const active = cards[currentIndex];
+            if (active) {
+                const lon = parseFloat(active.dataset.lon);
+                const lat = parseFloat(active.dataset.lat);
+                if (!isNaN(lon) && !isNaN(lat)) {
+                    map.setCenter([lon, lat]);
+                }
+            }
+        }
+
+        updateStack();
+
+        let startY = null;
+        cardsContainer.addEventListener('pointerdown', (e) => {
+            startY = e.clientY;
+        });
+
+        cardsContainer.addEventListener('pointerup', (e) => {
+            if (startY === null) return;
+            const diff = e.clientY - startY;
+            if (diff < -30 && currentIndex < cards.length - 1) {
+                currentIndex++;
+                updateStack();
+            } else if (diff > 30 && currentIndex > 0) {
+                currentIndex--;
+                updateStack();
+            }
+            startY = null;
+        });
     </script>
 </body>
 </html>
