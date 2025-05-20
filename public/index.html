@@ -1,115 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moscow Map</title>
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            position: absolute;
-            inset: 0;
-            touch-action: none;
-        }
-        .marker {
-            background: white;
-            border-radius: 4px;
-            padding: 2px 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            transform: translate(-50%, -100%);
-            pointer-events: none;
-        }
-        #cards {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            padding: 1rem;
-            display: flex;
-            gap: 1rem;
-            overflow-x: auto;
-            box-sizing: border-box;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-        }
-        #cards::-webkit-scrollbar {
-            display: none;
-        }
-        .card {
-            flex: 0 0 80%;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            padding: 1rem;
-            scroll-snap-align: center;
-        }
-    </style>
-    <script src="https://mapgl.2gis.com/api/js"></script>
+  <meta charset="utf-8" />
+  <title>City Top-50 Prototype</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  <style>
+    html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+    #map{position:absolute;top:0;left:0;right:0;bottom:0}
+    .card-container{position:absolute;left:0;right:0;bottom:0;height:260px;pointer-events:none;display:flex;justify-content:center;background:linear-gradient(0deg,rgba(0,0,0,.25),rgba(0,0,0,0));backdrop-filter:blur(4px)}
+    .swiper{width:92%;height:220px;margin:auto;pointer-events:auto}
+    .swiper-slide{background:#fff;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.15);overflow:hidden;display:flex;flex-direction:column;padding:16px}
+    .swiper-slide h3{margin:0 0 4px;font-size:18px;font-weight:600}
+    .swiper-slide p{margin:0 0 8px;font-size:14px;color:#555;line-height:1.35}
+    .swiper-slide .meta{margin-top:auto;font-size:12px;color:#888}
+    .marker{width:36px;height:36px;border-radius:50%;background:#39d353;border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.15);transition:transform .2s ease}
+    .marker.passive{background:#e4e4e4}
+    .marker.active{transform:scale(1.2)}
+  </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="cards"></div>
-    <script>
-        const map = new mapgl.Map('map', {
-            key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
-            center: [37.617, 55.755],
-            zoom: 14,
-        });
+<div id="map"></div>
+<div class="card-container">
+  <div class="swiper">
+    <div class="swiper-wrapper" id="slides"></div>
+  </div>
+</div>
 
-        function randomInRange(min, max) {
-            return Math.random() * (max - min) + min;
-        }
+<script src="https://mapgl.2gis.com/api/js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+  const LAT_MIN = 55.70, LAT_MAX = 55.80;
+  const LNG_MIN = 37.55, LNG_MAX = 37.75;
 
-        function addMarker(name, coordinates) {
-            const el = document.createElement('div');
-            el.className = 'marker';
-            el.textContent = name;
-            new mapgl.HtmlMarker(map, {
-                coordinates: coordinates,
-                html: el,
-            });
-        }
+  const companies = Array.from({length:50}, (_,i)=>({
+      id:i,
+      name:`Company ${i+1}`,
+      desc:"This is a mock description for the company that can be replaced with real data.",
+      coords:[
+        +(LNG_MIN + Math.random()*(LNG_MAX-LNG_MIN)).toFixed(6),
+        +(LAT_MIN + Math.random()*(LAT_MAX-LAT_MIN)).toFixed(6)
+      ]
+  }));
 
-        const companies = [];
+  const map = new mapgl.Map('map', {
+    key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
+    center:[37.62,55.75],
+    zoom:11
+  });
 
-        for (let i = 1; i <= 50; i++) {
-            const lon = randomInRange(37.59, 37.65);
-            const lat = randomInRange(55.73, 55.77);
-            const coords = [lon, lat];
-            addMarker('Company ' + i, coords);
-            companies.push({ name: 'Company ' + i, coordinates: coords });
-        }
+  const markers = [];
+  companies.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'marker passive';
+    const mk = new mapgl.HtmlMarker(map, {coordinates:c.coords, html:el});
+    markers.push({marker: mk, el});
+  });
 
-        const cardsContainer = document.getElementById('cards');
+  const slideFrag = document.createDocumentFragment();
+  companies.forEach(c => {
+    const slide = document.createElement('div');
+    slide.className = 'swiper-slide';
+    slide.innerHTML = `<h3>${c.name}</h3><p>${c.desc}</p><div class="meta">Lat: ${c.coords[1].toFixed(3)}, Lng: ${c.coords[0].toFixed(3)}</div>`;
+    slideFrag.appendChild(slide);
+  });
+  document.getElementById('slides').appendChild(slideFrag);
 
-        companies.forEach((company) => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.textContent = company.name;
-            card.dataset.lon = company.coordinates[0];
-            card.dataset.lat = company.coordinates[1];
-            cardsContainer.appendChild(card);
-        });
+  const swiper = new Swiper('.swiper', {
+    slidesPerView:1,
+    spaceBetween:12,
+    centeredSlides:true,
+    loop:false,
+    grabCursor:true,
+    resistanceRatio:0.5,
+    on:{
+      init(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); },
+      slideChange(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); }
+    }
+  });
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
-                    const card = entry.target;
-                    const lon = parseFloat(card.dataset.lon);
-                    const lat = parseFloat(card.dataset.lat);
-                    if (!isNaN(lon) && !isNaN(lat)) {
-                        map.setCenter([lon, lat]);
-                    }
-                }
-            });
-        }, { root: cardsContainer, threshold: 0.6 });
+  function highlightMarker(idx){
+    markers.forEach((m,i)=>{
+      if(i===idx){
+        m.el.classList.remove('passive');
+        m.el.classList.add('active');
+      } else {
+        m.el.classList.remove('active');
+        m.el.classList.add('passive');
+      }
+    });
+  }
 
-        Array.from(cardsContainer.children).forEach((el) => observer.observe(el));
-    </script>
+  function flyToMarker(idx){
+    const {coords} = companies[idx];
+    map.setCenter(coords);
+    map.setZoom(14);
+  }
+
+  markers.forEach((m,i)=>{
+    m.el.addEventListener('click',()=>{
+      swiper.slideTo(i);
+    });
+  });
+</script>
 </body>
 </html>
