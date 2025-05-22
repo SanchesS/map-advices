@@ -6,42 +6,63 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <style>
-    html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f6f6f6}
+    html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f5f5f5}
     #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
-    .map-controls{position:absolute;top:80px;right:16px;z-index:10;display:flex;flex-direction:column;gap:8px}
-    .map-btn{width:44px;height:44px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.10);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:box-shadow .2s}
-    .map-btn:active{box-shadow:0 2px 12px rgba(0,0,0,.18)}
-    .card-container{position:absolute;left:0;right:0;bottom:0;height:320px;pointer-events:none;display:flex;justify-content:center;background:linear-gradient(0deg,rgba(0,0,0,.25),rgba(0,0,0,0));backdrop-filter:blur(4px);z-index:5}
-    .swiper{width:96%;height:280px;margin:auto;pointer-events:auto;overflow:visible}
-    .swiper-slide{opacity:0;visibility:hidden;transform:translateY(120vh) scale(.8);transition:transform .4s cubic-bezier(.25,.8,.25,1),opacity .3s ease,visibility 0s linear .3s,box-shadow .3s ease;will-change:transform,opacity,visibility}
-    .swiper-slide.visible{opacity:1;visibility:visible}
-    .swiper-slide.visible.active-stack{transform:translateY(0) scale(1) rotate(0deg);box-shadow:0 12px 32px rgba(0,0,0,.22);z-index:3}
-    .swiper-slide.visible.next-stack-1{transform:translateY(30px) scale(.94) rotate(3deg);box-shadow:0 8px 20px rgba(0,0,0,.15);z-index:2}
-    .swiper-slide.visible.next-stack-2{transform:translateY(60px) scale(.88) rotate(-3.5deg);box-shadow:0 4px 12px rgba(0,0,0,.10);z-index:1}
-    .swiper-slide.visible.next-stack-3{transform:translateY(90px) scale(.82) rotate(2.5deg);box-shadow:0 2px 8px rgba(0,0,0,.05);z-index:0}
-    .slide-img{width:100%;height:140px;object-fit:cover;border-radius:28px 28px 0 0;margin:0;position:relative;z-index:1}
-    .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:140px;z-index:2;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;}
-    .slide-tags{display:flex;gap:8px;margin:14px 0 0 14px;}
-    .slide-tag{background:rgba(0,0,0,0.65);color:#fff;font-size:13px;padding:3px 10px;border-radius:8px;display:flex;align-items:center;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,.10)}
-    .slide-friends{display:flex;align-items:center;gap:6px;margin:0 0 14px 14px;}
-    .friend-avatar{width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.10)}
-    .slide-content{padding:18px 20px 0 20px;display:flex;flex-direction:column;gap:4px}
-    .slide-title{font-size:20px;font-weight:700;margin:0;line-height:1.2}
-    .slide-meta{font-size:14px;color:#888;margin-bottom:2px}
-    .slide-actions{display:flex;align-items:center;justify-content:space-between;padding:0 20px 14px 20px;margin-top:18px}
-    .slide-action{display:flex;align-items:center;gap:0;font-size:0;color:#444;background:#f7f7f7;border-radius:10px;padding:8px 0;width:44px;justify-content:center;cursor:pointer;transition:background .15s}
-    .slide-action.selected{background:#e0f7e9;color:#1a7f4e}
-    .slide-action svg{width:22px;height:22px}
-    .marker{width:56px;height:56px;border-radius:18px;background:#fff;border:3px solid #fff;box-shadow:0 2px 12px rgba(57,211,83,0.18),0 0 0 2px rgba(0,0,0,.10);transition:transform .2s,box-shadow .2s;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
-    .marker.passive{border-color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.10);opacity:0.85}
-    .marker.active{border-color:#39d353;box-shadow:0 0 0 6px rgba(57,211,83,0.25),0 2px 16px rgba(57,211,83,0.18);z-index:2;transform:scale(1.12)}
-    .marker-img{width:48px;height:48px;border-radius:14px;object-fit:cover}
-    .marker-badge{position:absolute;bottom:-4px;right:-4px;background:#fff;border-radius:50%;padding:2px;box-shadow:0 1px 4px rgba(0,0,0,.10);z-index:2}
-    .marker-badge-inner{background:#39d353;color:#fff;font-size:15px;font-weight:700;border-radius:50%;padding:2px 7px;display:flex;align-items:center;gap:2px;}
-    .marker-badge-inner svg{width:16px;height:16px;vertical-align:middle;}
+    .map-controls{position:absolute;top:20px;right:20px;z-index:10;display:flex;flex-direction:column;gap:12px}
+    .map-btn{width:48px;height:48px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer;transition:all .2s ease}
+    .map-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
+    .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    
+    .card-container{position:absolute;left:0;right:0;bottom:0;height:400px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px}
+    .card-stack{position:relative;width:100%;max-width:400px;height:360px;pointer-events:auto}
+    
+    .card{position:absolute;width:100%;height:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12);opacity:0;transform:translateY(100vh);transition:all .4s cubic-bezier(.25,.8,.25,1);cursor:grab}
+    .card.dragging{cursor:grabbing;transition:none}
+    
+    .card.visible{opacity:1}
+    .card.stack-0{transform:translate(0, 0) rotate(0deg);box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:4}
+    .card.stack-1{transform:translate(-6px, -15px) rotate(-2deg);box-shadow:0 4px 20px rgba(0,0,0,.10);z-index:3}
+    .card.stack-2{transform:translate(6px, -30px) rotate(2deg);box-shadow:0 2px 12px rgba(0,0,0,.08);z-index:2}
+    .card.stack-3{transform:translate(-3px, -45px) rotate(-1deg);box-shadow:0 2px 8px rgba(0,0,0,.06);z-index:1}
+    
+    .slide-header{padding:20px 20px 16px;background:#fff}
+    .slide-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .slide-title{font-size:24px;font-weight:700;margin:0;color:#1a1a1a}
+    .slide-rating{display:flex;align-items:center;gap:4px;font-size:16px;font-weight:600;color:#333}
+    .slide-rating svg{width:16px;height:16px;fill:#FFB800}
+    .slide-address{font-size:14px;color:#666;margin:0;line-height:1.4}
+    
+    .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden}
+    .slide-img{width:100%;height:100%;object-fit:cover}
+    .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
+    
+    .slide-tags{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .slide-tag{background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;font-weight:500;padding:6px 12px;border-radius:20px;display:flex;align-items:center;gap:6px}
+    .slide-tag-icon{font-size:15px}
+    
+    .slide-friends{position:absolute;bottom:12px;left:12px;display:flex;align-items:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:4px 6px 4px 4px;border-radius:24px}
+    .friend-avatar{width:32px;height:32px;border-radius:50%;border:2px solid #fff;margin-left:-10px}
+    .friend-avatar:first-child{margin-left:0}
+    .friends-text{color:#fff;font-size:13px;font-weight:500;margin-left:8px;margin-right:4px}
+    
+    .slide-actions{display:flex;align-items:center;justify-content:space-around;padding:12px 20px 16px;background:#fff}
+    .slide-action{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;cursor:pointer;transition:all .2s ease;background:transparent}
+    .slide-action:hover{background:#f5f5f5}
+    .slide-action:active{transform:scale(0.92)}
+    .slide-action.selected{color:#4CAF50}
+    .slide-action svg{width:28px;height:28px;fill:currentColor}
+    
+    .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer}
+    .marker.passive{opacity:0.85;transform:scale(0.85)}
+    .marker.active{border-color:#4CAF50;box-shadow:0 0 0 6px rgba(76,175,80,0.2),0 4px 16px rgba(0,0,0,.12);transform:scale(1);z-index:10}
+    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover}
+    .marker-badge{position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+    .marker-badge-inner{background:#4CAF50;color:#fff;font-size:14px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+    
     @media (max-width:600px){
-      .swiper{width:100%}
-      .card-container{height:340px}
+      .card-stack{max-width:calc(100% - 24px)}
+      .card-container{height:420px;padding-bottom:16px}
+      .map-controls{top:70px;right:16px}
     }
   </style>
 </head>
@@ -52,13 +73,10 @@
   <div class="map-btn" id="zoom-out">−</div>
 </div>
 <div class="card-container">
-  <div class="swiper">
-    <div class="swiper-wrapper" id="slides"></div>
-  </div>
+  <div class="card-stack" id="card-stack"></div>
 </div>
 
 <script src="https://mapgl.2gis.com/api/js"></script>
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
   const AVATARS = [
     'https://randomuser.me/api/portraits/men/32.jpg',
@@ -67,114 +85,209 @@
     'https://randomuser.me/api/portraits/women/65.jpg',
     'https://randomuser.me/api/portraits/men/77.jpg',
     'https://randomuser.me/api/portraits/women/88.jpg',
-    'https://randomuser.me/api/portraits/men/99.jpg',
-    'https://randomuser.me/api/portraits/women/12.jpg',
   ];
   const PHOTOS = [
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
     'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1526178613658-3f1622045557?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=600&q=80',
   ];
   const TAGS = [
-    {icon:'⭐', text:'4.3'},
     {icon:'⚡', text:'Быстрая готовка'},
-    {icon:'👥', text:'Были друзья'},
     {icon:'💳', text:'Средний чек 500₽'},
-    {icon:'⏰', text:'Открыто до 24:00'},
+    {icon:'🎵', text:'Живая музыка'},
   ];
   const LAT_MIN = 55.70, LAT_MAX = 55.80;
   const LNG_MIN = 37.55, LNG_MAX = 37.75;
   function randomFrom(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
   function randomTags() {
     const shuffled = TAGS.sort(()=>0.5-Math.random());
-    return shuffled.slice(0,2+Math.floor(Math.random()*2));
+    return shuffled.slice(0,1+Math.floor(Math.random()*2));
   }
   const companies = Array.from({length:50}, (_,i)=>({
       id:i,
       name:`Sempre ${i+1}`,
-      desc:"Были ваши друзья. Средний чек 500₽. Открыто до 24:00.",
+      address:"Большая Дмитровка, 22 ст1",
       coords:[
         +(LNG_MIN + Math.random()*(LNG_MAX-LNG_MIN)).toFixed(6),
         +(LAT_MIN + Math.random()*(LAT_MAX-LAT_MIN)).toFixed(6)
       ],
-      photo: randomFrom(PHOTOS),
-      friends: Array.from({length:Math.floor(Math.random()*3)+1},()=>randomFrom(AVATARS)),
+      photo: PHOTOS[i % PHOTOS.length],
+      friends: Array.from({length:Math.floor(Math.random()*2)+2},()=>randomFrom(AVATARS)),
       tags: randomTags(),
-      rating: 4.3
+      rating: (3.8 + Math.random()*1.2).toFixed(1)
   }));
+  
   const map = new mapgl.Map('map', {
     key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
     center:[37.62,55.75],
-    zoom:11
+    zoom:12,
+    style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b'
   });
+  
   const markers = [];
   companies.forEach((c, idx) => {
     const el = document.createElement('div');
     el.className = 'marker passive';
     el.innerHTML = `<img class="marker-img" src="${c.photo}" alt=""/>
-      <div class="marker-badge"><div class="marker-badge-inner"><svg viewBox='0 0 20 20'><circle cx='10' cy='10' r='10' fill='#39d353'/><text x='10' y='15' text-anchor='middle' font-size='13' fill='#fff' font-weight='bold'>★</text></svg></div></div>`;
+      <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
     const mk = new mapgl.HtmlMarker(map, {coordinates:c.coords, html:el});
     markers.push({marker: mk, el});
   });
-  const slideFrag = document.createDocumentFragment();
-  companies.forEach((c, idx) => {
-    const slide = document.createElement('div');
-    slide.className = 'swiper-slide';
-    slide.innerHTML = `
-      <div style='position:relative;'>
-        <img class="slide-img" src="${c.photo}" alt=""/>
+  
+  // Card stack implementation
+  let currentIndex = 0;
+  const cardStack = document.getElementById('card-stack');
+  const cards = [];
+  
+  function createCard(company, index) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.index = index;
+    card.innerHTML = `
+      <div class="slide-header">
+        <div class="slide-title-row">
+          <h3 class="slide-title">${company.name}</h3>
+          <div class="slide-rating">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            ${company.rating}
+          </div>
+        </div>
+        <p class="slide-address">Открыто до 24:00 • ${company.address}</p>
+      </div>
+      <div class="slide-image-container">
+        <img class="slide-img" src="${company.photo}" alt=""/>
         <div class="slide-img-overlay">
-          <div class="slide-tags">${c.tags.map(t=>`<span class='slide-tag'>${t.icon} ${t.text}</span>`).join('')}</div>
-          <div class="slide-friends">${c.friends.map(f=>`<img class='friend-avatar' src='${f}'/>`).join('')}</div>
+          <div class="slide-tags">${company.tags.map(t=>`<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`).join('')}</div>
+          <div class="slide-friends">
+            ${company.friends.slice(0,2).map(f=>`<img class='friend-avatar' src='${f}' alt=''/>`).join('')}
+            <span class="friends-text">Были друзья</span>
+          </div>
         </div>
       </div>
-      <div class="slide-content">
-        <div class="slide-title">${c.name}</div>
-        <div class="slide-meta">Открыто до 24:00 • Большая Дмитровка, 22 ст1</div>
-      </div>
       <div class="slide-actions">
-        <div class="slide-action" data-action="walk"><svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-1 7.5c.28-.5.78-.5 1.06 0l2.5 4.5c.18.32.07.73-.25.91a.68.68 0 0 1-.91-.25l-1.4-2.5-1.4 2.5a.68.68 0 0 1-.91.25.68.68 0 0 1-.25-.91l2.5-4.5z"/></svg></div>
-        <div class="slide-action" data-action="bookmark"><svg viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v18l8-5.33L20 22V4a2 2 0 0 0-2-2H6z"/></svg></div>
-        <div class="slide-action" data-action="like"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 1.01 4.5 2.09C13.09 4.01 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
-        <div class="slide-action" data-action="dislike"><svg viewBox="0 0 24 24"><path d="M12 2.65l1.45 1.32C18.6 8.64 22 11.72 22 15.5c0 3.08-2.42 5.5-5.5 5.5-1.74 0-3.41-1.01-4.5-2.09C10.91 20.99 9.24 22 7.5 22 4.42 22 2 19.58 2 16.5c0-3.78 3.4-6.86 8.55-11.54L12 2.65z"/></svg></div>
+        <div class="slide-action" data-action="walk">
+          <svg viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>
+        </div>
+        <div class="slide-action" data-action="bookmark">
+          <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+        </div>
+        <div class="slide-action" data-action="like">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </div>
+        <div class="slide-action" data-action="dislike">
+          <svg viewBox="0 0 24 24"><path d="M15 3H6c-.83 0-1.54.5-1.85 1.26l-3.92 9.83c-.09.22-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>
+        </div>
       </div>
     `;
-    slideFrag.appendChild(slide);
-  });
-  document.getElementById('slides').appendChild(slideFrag);
-
-  function updateVisibility(sw){
-    const slides = sw.slides;
-    for(let i=0;i<slides.length;i++){
-      slides[i].classList.remove('visible','active-stack','next-stack-1','next-stack-2','next-stack-3');
-    }
-    const idx = sw.activeIndex;
-    const order = [idx,idx+1,idx+2,idx+3];
-    const classes = ['active-stack','next-stack-1','next-stack-2','next-stack-3'];
-    order.forEach((slideIdx,orderPos)=>{
-      if(slideIdx<slides.length){
-        slides[slideIdx].classList.add('visible',classes[orderPos]);
-      }
-    });
+    return card;
   }
-
-  const swiper = new Swiper('.swiper', {
-    direction: 'vertical',
-    effect: 'slide',
-    slidesPerView: 1,
-    spaceBetween: 0,
-    centeredSlides: true,
-    loop: false,
-    grabCursor: true,
-    resistanceRatio: 0.5,
-    on: {
-      init(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); updateVisibility(this); },
-      slideChange(){ highlightMarker(this.activeIndex); flyToMarker(this.activeIndex); updateVisibility(this); }
+  
+  function updateStack() {
+    const visibleCount = 4;
+    for (let i = 0; i < visibleCount && currentIndex + i < companies.length; i++) {
+      let card = cards[currentIndex + i];
+      if (!card) {
+        card = createCard(companies[currentIndex + i], currentIndex + i);
+        cards[currentIndex + i] = card;
+        cardStack.appendChild(card);
+      }
+      card.className = `card visible stack-${i}`;
+    }
+    
+    // Remove old cards that are no longer visible
+    if (currentIndex > 0) {
+      const oldCard = cards[currentIndex - 1];
+      if (oldCard && oldCard.parentNode) {
+        setTimeout(() => {
+          if (oldCard.parentNode) {
+            oldCard.remove();
+          }
+        }, 400);
+      }
+    }
+    
+    highlightMarker(currentIndex);
+    flyToMarker(currentIndex);
+  }
+  
+  // Touch/drag handling
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+  let dragThreshold = 80;
+  
+  function handleStart(e) {
+    const topCard = cards[currentIndex];
+    if (!topCard || topCard !== e.target.closest('.card')) return;
+    
+    isDragging = true;
+    startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+    topCard.classList.add('dragging');
+  }
+  
+  function handleMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    currentY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+    const deltaY = currentY - startY;
+    const topCard = cards[currentIndex];
+    
+    if (deltaY < 0) { // Only allow upward swipe
+      topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
+      topCard.style.opacity = 1 + deltaY / 200;
+    }
+  }
+  
+  function handleEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    
+    const topCard = cards[currentIndex];
+    topCard.classList.remove('dragging');
+    
+    const deltaY = currentY - startY;
+    
+    if (deltaY < -dragThreshold && currentIndex < companies.length - 1) {
+      // Swipe up - next card
+      topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+      topCard.style.opacity = '0';
+      currentIndex++;
+      updateStack();
+    } else {
+      // Return to position
+      topCard.style.transform = '';
+      topCard.style.opacity = '';
+    }
+    
+    startY = 0;
+    currentY = 0;
+  }
+  
+  // Event listeners
+  cardStack.addEventListener('mousedown', handleStart);
+  cardStack.addEventListener('mousemove', handleMove);
+  cardStack.addEventListener('mouseup', handleEnd);
+  cardStack.addEventListener('mouseleave', handleEnd);
+  
+  cardStack.addEventListener('touchstart', handleStart);
+  cardStack.addEventListener('touchmove', handleMove);
+  cardStack.addEventListener('touchend', handleEnd);
+  
+  // Action buttons
+  cardStack.addEventListener('click', function(e) {
+    const action = e.target.closest('.slide-action');
+    if (action) {
+      e.stopPropagation();
+      if (action.dataset.action === 'like' || action.dataset.action === 'bookmark') {
+        action.classList.toggle('selected');
+      }
     }
   });
+  
   function highlightMarker(idx){
     markers.forEach((m,i)=>{
       if(i===idx){
@@ -186,18 +299,39 @@
       }
     });
   }
+  
   function flyToMarker(idx){
     const {coords} = companies[idx];
-    map.setCenter(coords);
-    map.setZoom(15);
+    const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
+    const offsetPx = cardHeight / 2 - 60;
+    const pixel = map.project(coords);
+    const targetPx = [pixel[0], pixel[1] - offsetPx];
+    const targetCoords = map.unproject(targetPx);
+    map.setCenter(targetCoords, {duration: 300});
+    map.setZoom(15, {duration: 300});
   }
+  
+  function goToCard(index) {
+    if (index >= 0 && index < companies.length && index !== currentIndex) {
+      currentIndex = index;
+      // Clear and rebuild stack
+      cardStack.innerHTML = '';
+      cards.length = 0;
+      updateStack();
+    }
+  }
+  
   markers.forEach((m,i)=>{
     m.el.addEventListener('click',()=>{
-      swiper.slideTo(i);
+      goToCard(i);
     });
   });
+  
   document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1);
   document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1);
+  
+  // Initialize
+  updateStack();
 </script>
 </body>
 </html>
