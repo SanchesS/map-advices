@@ -13,7 +13,8 @@
     .map-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
     .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
     
-    .card-container{position:absolute;left:0;right:0;bottom:0;height:400px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px}
+    .card-container{position:absolute;left:0;right:0;bottom:0;height:400px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px;transition:transform 500ms cubic-bezier(0.4,0,0.2,1)}
+    .card-container.minimized{transform:translateY(320px)}
     .card-stack{position:relative;width:100%;max-width:400px;height:360px;pointer-events:auto}
     
     .skeleton-loader{position:absolute;width:100%;max-width:400px;height:360px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15);display:flex;flex-direction:column}
@@ -90,6 +91,7 @@
       .card-stack{max-width:calc(100% - 24px)}
       .skeleton-loader{max-width:calc(100% - 24px)}
       .card-container{height:420px;padding-bottom:16px}
+      .card-container.minimized{transform:translateY(336px)}
       .map-controls{top:70px;right:16px}
     }
   </style>
@@ -168,16 +170,45 @@
   }));
   
   let mapReady = false;
+  let isCardMinimized = false;
+  const cardContainer = document.querySelector('.card-container');
+  
+  // Ensure card starts in full state
+  cardContainer.classList.remove('minimized');
   
   const map = new mapgl.Map('map', {
     key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
-    center:[37.62,55.75],
-    zoom:11,
+    center:[37.65,55.75], // Shifted slightly east to center markers better
+    zoom:12, // Increased initial zoom for better view
     style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b',
     zoomControl: false // Disable default zoom control
   });
   
   const markers = [];
+  
+  // Map interaction handlers
+  let isInitializing = true;  // Flag to prevent minimizing during initial setup
+  let isProgrammaticMove = false;  // Flag to track programmatic map movements
+  
+  function minimizeCard() {
+    if (!isCardMinimized && mapReady && !isInitializing && !isProgrammaticMove) {
+      isCardMinimized = true;
+      cardContainer.classList.add('minimized');
+    }
+  }
+  
+  function restoreCard() {
+    if (isCardMinimized) {
+      isCardMinimized = false;
+      cardContainer.classList.remove('minimized');
+    }
+  }
+  
+  // Add map interaction listeners
+  map.on('movestart', minimizeCard);  // movestart is triggered on any map movement including drag
+  map.on('zoomstart', minimizeCard);
+  map.on('pitchstart', minimizeCard);
+  map.on('rotatestart', minimizeCard);
   
   // Initialize after map is ready
   map.on('idle', () => {
@@ -228,6 +259,7 @@
         markers.forEach((m,i)=>{
           if (m) {
             m.el.addEventListener('click',()=>{
+              restoreCard(); // Restore card when marker is clicked
               goToCard(i);
             });
           }
@@ -244,6 +276,11 @@
         
         // Fly to first marker with zoom in a single animation
         flyToFirstMarker();
+        
+        // Allow card minimization after initial setup is complete
+        setTimeout(() => {
+          isInitializing = false;
+        }, 1000);  // Wait for initial animation to complete
       }, 1500);
     }
   });
@@ -486,6 +523,13 @@
   cardStack.addEventListener('touchmove', handleMove, {passive: false});
   cardStack.addEventListener('touchend', handleEnd);
   
+  // Restore card on click when minimized
+  cardContainer.addEventListener('click', function(e) {
+    if (isCardMinimized && !e.target.closest('.slide-action')) {
+      restoreCard();
+    }
+  });
+  
   // Action buttons
   cardStack.addEventListener('click', function(e) {
     const action = e.target.closest('.slide-action');
@@ -515,6 +559,9 @@
       return;
     }
     
+    // Set flag to prevent card minimization during programmatic map movement
+    isProgrammaticMove = true;
+    
     const coords = companies[0].coords;
     const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
     
@@ -543,6 +590,11 @@
       duration: 800,
       easing: 'easeOutBack'
     });
+    
+    // Reset flag after animation completes
+    setTimeout(() => {
+      isProgrammaticMove = false;
+    }, 850);
   }
   
   function flyToMarkerImproved(idx, bouncy = false) {
@@ -550,16 +602,22 @@
       return;
     }
     
+    // Set flag to prevent card minimization during programmatic map movement
+    isProgrammaticMove = true;
+    
     const coords = companies[idx].coords;
     const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
     
     // Calculate offset to center marker in visible area above card
     const mapContainer = document.getElementById('map');
     const mapHeight = mapContainer.offsetHeight;
-    const visibleHeight = mapHeight - cardHeight;
+    
+    // Adjust for minimized state - when minimized, only 20% of card is visible
+    const effectiveCardHeight = isCardMinimized ? cardHeight * 0.2 : cardHeight;
+    const visibleHeight = mapHeight - effectiveCardHeight;
     
     // We want the marker in the center of the visible area
-    const offsetRatio = ((cardHeight / 2) + (visibleHeight / 4)) / mapHeight;
+    const offsetRatio = ((effectiveCardHeight / 2) + (visibleHeight / 4)) / mapHeight;
     
     // Get current zoom level to calculate appropriate lat offset
     const zoom = map.getZoom();
@@ -581,6 +639,11 @@
         easing: bouncy ? 'easeOutBack' : 'easeInOutCubic'
       });
     }
+    
+    // Reset flag after animation completes
+    setTimeout(() => {
+      isProgrammaticMove = false;
+    }, bouncy ? 850 : 450);
   }
   
   function goToCard(index) {
