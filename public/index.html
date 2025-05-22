@@ -16,6 +16,23 @@
     .card-container{position:absolute;left:0;right:0;bottom:0;height:400px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px}
     .card-stack{position:relative;width:100%;max-width:400px;height:360px;pointer-events:auto}
     
+    .skeleton-loader{position:absolute;width:100%;max-width:400px;height:360px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15);display:flex;flex-direction:column}
+    .skeleton-header{padding:20px 20px 16px;background:#fff}
+    .skeleton-title{font-size:18px;font-weight:600;color:#333;text-align:center;margin:0 0 8px 0}
+    .skeleton-line{height:14px;background:#f0f0f0;border-radius:7px;margin-bottom:8px;position:relative;overflow:hidden}
+    .skeleton-line::after{content:'';position:absolute;top:0;left:-200px;width:200px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.8),transparent);animation:skeleton-loading 1.5s ease-in-out infinite}
+    .skeleton-image{height:200px;background:#f0f0f0;position:relative;overflow:hidden}
+    .skeleton-image::after{content:'';position:absolute;top:0;left:-200px;width:200px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);animation:skeleton-loading 1.5s ease-in-out infinite}
+    .skeleton-actions{padding:20px;display:flex;justify-content:space-around}
+    .skeleton-action{width:44px;height:44px;border-radius:12px;background:#f0f0f0}
+    .loader-dots{display:inline-flex;gap:4px}
+    .loader-dot{width:6px;height:6px;background:#666;border-radius:50%;animation:loader-bounce 1.4s infinite ease-in-out both}
+    .loader-dot:nth-child(1){animation-delay:-0.32s}
+    .loader-dot:nth-child(2){animation-delay:-0.16s}
+    
+    @keyframes skeleton-loading{to{left:100%}}
+    @keyframes loader-bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+    
     .card{position:absolute;width:100%;height:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12);opacity:0;transform:translateY(100vh);transition:all .4s cubic-bezier(.25,.8,.25,1);cursor:grab}
     .card.dragging{cursor:grabbing;transition:none}
     
@@ -60,15 +77,18 @@
     .slide-action.selected{color:#4CAF50}
     .slide-action svg{width:28px;height:28px;fill:currentColor}
     
-    .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer}
+    .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;opacity:0;transform:scale(0);animation:marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards}
     .marker.passive{opacity:0.85;transform:scale(0.85)}
     .marker.active{border-color:#4CAF50;box-shadow:0 0 0 6px rgba(76,175,80,0.2),0 4px 16px rgba(0,0,0,.12);transform:scale(1);z-index:10}
     .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover}
     .marker-badge{position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
     .marker-badge-inner{background:#4CAF50;color:#fff;font-size:14px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
     
+    @keyframes marker-pop{to{opacity:0.85;transform:scale(0.85)}}
+    
     @media (max-width:600px){
       .card-stack{max-width:calc(100% - 24px)}
+      .skeleton-loader{max-width:calc(100% - 24px)}
       .card-container{height:420px;padding-bottom:16px}
       .map-controls{top:70px;right:16px}
     }
@@ -81,7 +101,20 @@
   <div class="map-btn" id="zoom-out">−</div>
 </div>
 <div class="card-container">
-  <div class="card-stack" id="card-stack"></div>
+  <div class="skeleton-loader" id="skeleton-loader">
+    <div class="skeleton-header">
+      <h3 class="skeleton-title">Собираем лучшие рекомендации<span class="loader-dots"><span class="loader-dot"></span><span class="loader-dot"></span><span class="loader-dot"></span></span></h3>
+      <div class="skeleton-line" style="width:70%"></div>
+    </div>
+    <div class="skeleton-image"></div>
+    <div class="skeleton-actions">
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+    </div>
+  </div>
+  <div class="card-stack" id="card-stack" style="display:none"></div>
 </div>
 
 <script src="https://mapgl.2gis.com/api/js"></script>
@@ -145,13 +178,74 @@
   });
   
   const markers = [];
+  
+  // Initialize after map is ready
+  map.on('idle', () => {
+    if (!mapReady) {
+      mapReady = true;
+      
+      // Create all markers immediately but hidden
   companies.forEach((c, idx) => {
     const el = document.createElement('div');
     el.className = 'marker passive';
-    el.innerHTML = `<img class="marker-img" src="${c.photos[0]}" alt=""/>
-      <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0)';
+        el.innerHTML = `<img class="marker-img" src="${c.photos[0]}" alt=""/>
+          <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
     const mk = new mapgl.HtmlMarker(map, {coordinates:c.coords, html:el});
-    markers.push({marker: mk, el, coords: c.coords});
+        markers[idx] = {marker: mk, el, coords: c.coords};
+  });
+      
+      // Animate markers appearing
+      const shuffledIndices = Array.from({length: companies.length}, (_, i) => i)
+        .sort(() => Math.random() - 0.5);
+      
+      // Always animate the first marker immediately
+      if (markers[0]) {
+        markers[0].el.style.animation = 'marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards';
+      }
+      
+      // Animate remaining markers with random order
+      shuffledIndices.forEach((idx, i) => {
+        if (idx === 0) return; // Skip first marker as we already animated it
+        setTimeout(() => {
+          if (markers[idx]) {
+            markers[idx].el.style.animation = 'marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards';
+          }
+        }, (i + 1) * 30); // Start from i+1 to account for first marker
+      });
+      
+      // After loading period, initialize cards and fly to first marker
+      setTimeout(() => {
+        // Hide skeleton loader and show card stack
+        document.getElementById('skeleton-loader').style.display = 'none';
+        cardStack.style.display = 'block';
+        
+        // Initialize stack without animation
+        updateStack(true);
+        
+        // Set up click handlers for markers
+        markers.forEach((m,i)=>{
+          if (m) {
+            m.el.addEventListener('click',()=>{
+              goToCard(i);
+            });
+          }
+        });
+        
+        // Ensure first marker is highlighted and visible
+        if (markers[0]) {
+          markers[0].el.style.opacity = '0.85';
+          markers[0].el.style.transform = 'scale(0.85)';
+          // Immediately apply active class before flying
+          markers[0].el.classList.remove('passive');
+          markers[0].el.classList.add('active');
+        }
+        
+        // Fly to first marker with zoom in a single animation
+        flyToFirstMarker();
+      }, 1500);
+    }
   });
   
   // Card stack implementation
@@ -231,7 +325,7 @@
         e.stopPropagation();
         const direction = nav.dataset.direction;
         navigatePhoto(index, direction);
-      });
+  });
     });
     
     return card;
@@ -267,25 +361,38 @@
   
   function updateStack(skipAnimation = false) {
     const visibleCount = 4;
+    
+    // First, hide all existing cards
+    cards.forEach(card => {
+      if (card && card.parentNode) {
+        card.style.display = 'none';
+      }
+    });
+    
+    // Then create/show only the cards we need
     for (let i = 0; i < visibleCount && currentIndex + i < companies.length; i++) {
       let card = cards[currentIndex + i];
       if (!card) {
         card = createCard(companies[currentIndex + i], currentIndex + i);
         cards[currentIndex + i] = card;
         cardStack.appendChild(card);
+      } else {
+        // Re-add card to DOM if it was removed
+        if (!card.parentNode) {
+          cardStack.appendChild(card);
+        }
+        card.style.display = 'block';
       }
       card.className = `card visible stack-${i}`;
     }
     
-    // Remove old cards that are no longer visible
-    if (currentIndex > 1) {
-      const oldCard = cards[currentIndex - 2];
-      if (oldCard && oldCard.parentNode) {
-        setTimeout(() => {
-          if (oldCard.parentNode) {
-            oldCard.remove();
-          }
-        }, 400);
+    // Clean up very old cards
+    if (currentIndex > 4) {
+      for (let i = 0; i < currentIndex - 4; i++) {
+        if (cards[i] && cards[i].parentNode) {
+          cards[i].remove();
+          cards[i] = null;
+        }
       }
     }
     
@@ -347,16 +454,16 @@
       // Swipe down - previous card
       topCard.style.transform = 'translateY(150vh) rotate(5deg)';
       topCard.style.opacity = '0';
-      currentIndex--;
       
-      // Recreate the previous card
+      // Wait for animation to complete before rebuilding
       setTimeout(() => {
+        currentIndex--;
+        // Remove only the cards that need to be removed
         cardStack.innerHTML = '';
-        cards.forEach((card, idx) => {
-          if (idx >= currentIndex && idx < currentIndex + 4 && cards[idx]) {
-            cards[idx] = null;
-          }
-        });
+        // Clear the cards array for the range we'll rebuild
+        for (let i = currentIndex; i < currentIndex + 4 && i < companies.length; i++) {
+          cards[i] = null;
+        }
         updateStack();
       }, 100);
     } else {
@@ -391,46 +498,88 @@
   });
   
   function highlightMarker(idx){
+    if (!markers[idx]) return;
     markers.forEach((m,i)=>{
-      if(i===idx){
+      if(m && i===idx){
         m.el.classList.remove('passive');
         m.el.classList.add('active');
-      } else {
+      } else if(m) {
         m.el.classList.remove('active');
         m.el.classList.add('passive');
       }
     });
   }
   
-  function flyToMarkerImproved(idx) {
-    if (!companies[idx] || !mapReady) {
+  function flyToFirstMarker() {
+    if (!companies[0] || !mapReady || !markers[0]) {
+      return;
+    }
+    
+    const coords = companies[0].coords;
+    const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
+    
+    // Calculate offset to center marker in visible area above card
+    const mapContainer = document.getElementById('map');
+    const mapHeight = mapContainer.offsetHeight;
+    const visibleHeight = mapHeight - cardHeight;
+    
+    // We want the marker in the center of the visible area
+    // Offset by half the card height plus a bit more to account for the visible area center
+    const offsetRatio = ((cardHeight / 2) + (visibleHeight / 4)) / mapHeight;
+    
+    // For zoom 15, calculate the latitude offset
+    const targetZoom = 15;
+    const latOffset = offsetRatio * (180 / Math.pow(2, targetZoom)) * 0.7;
+    
+    // Apply offset to latitude (move map center down to push marker up)
+    const offsetCoords = [coords[0], coords[1] - latOffset];
+    
+    // Single animation for both zoom and center
+    map.setCenter(offsetCoords, {
+      duration: 800,
+      easing: 'easeOutBack'
+    });
+    map.setZoom(targetZoom, {
+      duration: 800,
+      easing: 'easeOutBack'
+    });
+  }
+  
+  function flyToMarkerImproved(idx, bouncy = false) {
+    if (!companies[idx] || !mapReady || !markers[idx]) {
       return;
     }
     
     const coords = companies[idx].coords;
     const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
     
-    // Calculate offset in degrees (approximate)
+    // Calculate offset to center marker in visible area above card
     const mapContainer = document.getElementById('map');
     const mapHeight = mapContainer.offsetHeight;
-    const offsetRatio = (cardHeight / 2) / mapHeight;
+    const visibleHeight = mapHeight - cardHeight;
+    
+    // We want the marker in the center of the visible area
+    const offsetRatio = ((cardHeight / 2) + (visibleHeight / 4)) / mapHeight;
     
     // Get current zoom level to calculate appropriate lat offset
     const zoom = map.getZoom();
-    const latOffset = offsetRatio * (180 / Math.pow(2, zoom)) * 2;
+    const latOffset = offsetRatio * (180 / Math.pow(2, zoom)) * 0.7;
     
-    // Apply offset to latitude (move point up)
+    // Apply offset to latitude (move map center down to push marker up)
     const offsetCoords = [coords[0], coords[1] - latOffset];
     
     // Center map with animation
     map.setCenter(offsetCoords, {
-      duration: 400,
-      easing: 'easeInOutCubic'
+      duration: bouncy ? 800 : 400,
+      easing: bouncy ? 'easeOutBack' : 'easeInOutCubic'
     });
     
     // Ensure proper zoom level
     if (zoom < 15) {
-      map.setZoom(15, {duration: 400});
+      map.setZoom(15, {
+        duration: bouncy ? 800 : 400,
+        easing: bouncy ? 'easeOutBack' : 'easeInOutCubic'
+      });
     }
   }
   
@@ -448,29 +597,8 @@
     }
   }
   
-  markers.forEach((m,i)=>{
-    m.el.addEventListener('click',()=>{
-      goToCard(i);
-    });
-  });
-  
   document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1, {duration: 200});
   document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1, {duration: 200});
-  
-  // Initialize after map is ready
-  map.on('idle', () => {
-    if (!mapReady) {
-      mapReady = true;
-      
-      // Initialize stack without animation
-      updateStack(true);
-      
-      // Then animate to first card after a short delay
-      setTimeout(() => {
-        flyToMarkerImproved(0);
-      }, 1500);
-    }
-  });
 </script>
 </body>
 </html>
