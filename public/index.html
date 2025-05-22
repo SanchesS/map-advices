@@ -9,7 +9,7 @@
     html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f5f5f5}
     #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
     .map-controls{position:absolute;top:20px;right:20px;z-index:10;display:flex;flex-direction:column;gap:12px}
-    .map-btn{width:48px;height:48px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer;transition:all .2s ease}
+    .map-btn{width:48px;height:48px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer;transition:all .2s ease;user-select:none}
     .map-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
     .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
     
@@ -32,11 +32,19 @@
     .slide-rating svg{width:16px;height:16px;fill:#FFB800}
     .slide-address{font-size:14px;color:#666;margin:0;line-height:1.4}
     
-    .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden}
-    .slide-img{width:100%;height:100%;object-fit:cover}
+    .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden;cursor:pointer}
+    .slide-images{display:flex;height:100%;transition:transform .3s ease}
+    .slide-img{width:100%;height:100%;object-fit:cover;flex-shrink:0}
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
-    .slide-tags{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
+    .story-dot{width:32px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px;transition:background .3s}
+    .story-dot.active{background:rgba(255,255,255,0.9)}
+    
+    .photo-nav-areas{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;z-index:3}
+    .photo-nav{flex:1;cursor:pointer}
+    
+    .slide-tags{position:absolute;top:36px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}
     .slide-tag{background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;font-weight:500;padding:6px 12px;border-radius:20px;display:flex;align-items:center;gap:6px}
     .slide-tag-icon{font-size:15px}
     
@@ -87,12 +95,18 @@
     'https://randomuser.me/api/portraits/women/88.jpg',
   ];
   const PHOTOS = [
-    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=600&q=80',
+    ['https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+     'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=600&q=80',
+     'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=600&q=80'],
+    ['https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=600&q=80',
+     'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=600&q=80'],
+    ['https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=600&q=80',
+     'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=600&q=80',
+     'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=600&q=80'],
+    ['https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=600&q=80'],
+    ['https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+     'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?auto=format&fit=crop&w=600&q=80'],
+    ['https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=600&q=80'],
   ];
   const TAGS = [
     {icon:'⚡', text:'Быстрая готовка'},
@@ -114,38 +128,61 @@
         +(LNG_MIN + Math.random()*(LNG_MAX-LNG_MIN)).toFixed(6),
         +(LAT_MIN + Math.random()*(LAT_MAX-LAT_MIN)).toFixed(6)
       ],
-      photo: PHOTOS[i % PHOTOS.length],
+      photos: PHOTOS[i % PHOTOS.length],
       friends: Array.from({length:Math.floor(Math.random()*2)+2},()=>randomFrom(AVATARS)),
       tags: randomTags(),
       rating: (3.8 + Math.random()*1.2).toFixed(1)
   }));
   
+  let mapReady = false;
+  
   const map = new mapgl.Map('map', {
     key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
     center:[37.62,55.75],
-    zoom:12,
-    style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b'
+    zoom:11,
+    style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b',
+    zoomControl: false // Disable default zoom control
   });
   
   const markers = [];
   companies.forEach((c, idx) => {
     const el = document.createElement('div');
     el.className = 'marker passive';
-    el.innerHTML = `<img class="marker-img" src="${c.photo}" alt=""/>
+    el.innerHTML = `<img class="marker-img" src="${c.photos[0]}" alt=""/>
       <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
     const mk = new mapgl.HtmlMarker(map, {coordinates:c.coords, html:el});
-    markers.push({marker: mk, el});
+    markers.push({marker: mk, el, coords: c.coords});
   });
   
   // Card stack implementation
   let currentIndex = 0;
   const cardStack = document.getElementById('card-stack');
   const cards = [];
+  const photoIndexes = new Map(); // Track photo index for each card
   
   function createCard(company, index) {
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.index = index;
+    photoIndexes.set(index, 0);
+    
+    const photosHtml = company.photos.map(photo => 
+      `<img class="slide-img" src="${photo}" alt=""/>`
+    ).join('');
+    
+    const dotsHtml = company.photos.length > 1 ? 
+      `<div class="stories-dots">
+        ${company.photos.map((_, i) => 
+          `<div class="story-dot ${i === 0 ? 'active' : ''}"></div>`
+        ).join('')}
+      </div>` : '';
+    
+    const photoNavHtml = company.photos.length > 1 ?
+      `<div class="photo-nav-areas">
+        <div class="photo-nav" data-direction="prev"></div>
+        <div class="photo-nav" data-direction="next"></div>
+      </div>` : '';
+    
     card.innerHTML = `
       <div class="slide-header">
         <div class="slide-title-row">
@@ -158,7 +195,11 @@
         <p class="slide-address">Открыто до 24:00 • ${company.address}</p>
       </div>
       <div class="slide-image-container">
-        <img class="slide-img" src="${company.photo}" alt=""/>
+        <div class="slide-images" style="width: ${company.photos.length * 100}%">
+          ${photosHtml}
+        </div>
+        ${dotsHtml}
+        ${photoNavHtml}
         <div class="slide-img-overlay">
           <div class="slide-tags">${company.tags.map(t=>`<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`).join('')}</div>
           <div class="slide-friends">
@@ -182,10 +223,49 @@
         </div>
       </div>
     `;
+    
+    // Add photo navigation handlers
+    const photoNavs = card.querySelectorAll('.photo-nav');
+    photoNavs.forEach(nav => {
+      nav.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const direction = nav.dataset.direction;
+        navigatePhoto(index, direction);
+      });
+    });
+    
     return card;
   }
   
-  function updateStack() {
+  function navigatePhoto(cardIndex, direction) {
+    const company = companies[cardIndex];
+    if (!company.photos || company.photos.length <= 1) return;
+    
+    const card = cards[cardIndex];
+    if (!card) return;
+    
+    let currentPhotoIndex = photoIndexes.get(cardIndex) || 0;
+    const totalPhotos = company.photos.length;
+    
+    if (direction === 'next') {
+      currentPhotoIndex = (currentPhotoIndex + 1) % totalPhotos;
+    } else {
+      currentPhotoIndex = (currentPhotoIndex - 1 + totalPhotos) % totalPhotos;
+    }
+    
+    photoIndexes.set(cardIndex, currentPhotoIndex);
+    
+    const imagesContainer = card.querySelector('.slide-images');
+    const dots = card.querySelectorAll('.story-dot');
+    
+    imagesContainer.style.transform = `translateX(-${currentPhotoIndex * 100}%)`;
+    
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentPhotoIndex);
+    });
+  }
+  
+  function updateStack(skipAnimation = false) {
     const visibleCount = 4;
     for (let i = 0; i < visibleCount && currentIndex + i < companies.length; i++) {
       let card = cards[currentIndex + i];
@@ -198,8 +278,8 @@
     }
     
     // Remove old cards that are no longer visible
-    if (currentIndex > 0) {
-      const oldCard = cards[currentIndex - 1];
+    if (currentIndex > 1) {
+      const oldCard = cards[currentIndex - 2];
       if (oldCard && oldCard.parentNode) {
         setTimeout(() => {
           if (oldCard.parentNode) {
@@ -209,8 +289,13 @@
       }
     }
     
+    // Always highlight marker
     highlightMarker(currentIndex);
-    flyToMarker(currentIndex);
+    
+    // Only fly to marker if not skipping animation
+    if (!skipAnimation) {
+      flyToMarkerImproved(currentIndex);
+    }
   }
   
   // Touch/drag handling
@@ -222,6 +307,9 @@
   function handleStart(e) {
     const topCard = cards[currentIndex];
     if (!topCard || topCard !== e.target.closest('.card')) return;
+    
+    // Don't start drag if clicking on photo nav or action buttons
+    if (e.target.closest('.photo-nav') || e.target.closest('.slide-action')) return;
     
     isDragging = true;
     startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
@@ -236,10 +324,8 @@
     const deltaY = currentY - startY;
     const topCard = cards[currentIndex];
     
-    if (deltaY < 0) { // Only allow upward swipe
-      topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
-      topCard.style.opacity = 1 + deltaY / 200;
-    }
+    topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
+    topCard.style.opacity = 1 - Math.abs(deltaY) / 300;
   }
   
   function handleEnd() {
@@ -257,6 +343,22 @@
       topCard.style.opacity = '0';
       currentIndex++;
       updateStack();
+    } else if (deltaY > dragThreshold && currentIndex > 0) {
+      // Swipe down - previous card
+      topCard.style.transform = 'translateY(150vh) rotate(5deg)';
+      topCard.style.opacity = '0';
+      currentIndex--;
+      
+      // Recreate the previous card
+      setTimeout(() => {
+        cardStack.innerHTML = '';
+        cards.forEach((card, idx) => {
+          if (idx >= currentIndex && idx < currentIndex + 4 && cards[idx]) {
+            cards[idx] = null;
+          }
+        });
+        updateStack();
+      }, 100);
     } else {
       // Return to position
       topCard.style.transform = '';
@@ -273,8 +375,8 @@
   cardStack.addEventListener('mouseup', handleEnd);
   cardStack.addEventListener('mouseleave', handleEnd);
   
-  cardStack.addEventListener('touchstart', handleStart);
-  cardStack.addEventListener('touchmove', handleMove);
+  cardStack.addEventListener('touchstart', handleStart, {passive: false});
+  cardStack.addEventListener('touchmove', handleMove, {passive: false});
   cardStack.addEventListener('touchend', handleEnd);
   
   // Action buttons
@@ -300,15 +402,36 @@
     });
   }
   
-  function flyToMarker(idx){
-    const {coords} = companies[idx];
+  function flyToMarkerImproved(idx) {
+    if (!companies[idx] || !mapReady) {
+      return;
+    }
+    
+    const coords = companies[idx].coords;
     const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
-    const offsetPx = cardHeight / 2 - 60;
-    const pixel = map.project(coords);
-    const targetPx = [pixel[0], pixel[1] - offsetPx];
-    const targetCoords = map.unproject(targetPx);
-    map.setCenter(targetCoords, {duration: 300});
-    map.setZoom(15, {duration: 300});
+    
+    // Calculate offset in degrees (approximate)
+    const mapContainer = document.getElementById('map');
+    const mapHeight = mapContainer.offsetHeight;
+    const offsetRatio = (cardHeight / 2) / mapHeight;
+    
+    // Get current zoom level to calculate appropriate lat offset
+    const zoom = map.getZoom();
+    const latOffset = offsetRatio * (180 / Math.pow(2, zoom)) * 2;
+    
+    // Apply offset to latitude (move point up)
+    const offsetCoords = [coords[0], coords[1] - latOffset];
+    
+    // Center map with animation
+    map.setCenter(offsetCoords, {
+      duration: 400,
+      easing: 'easeInOutCubic'
+    });
+    
+    // Ensure proper zoom level
+    if (zoom < 15) {
+      map.setZoom(15, {duration: 400});
+    }
   }
   
   function goToCard(index) {
@@ -316,7 +439,11 @@
       currentIndex = index;
       // Clear and rebuild stack
       cardStack.innerHTML = '';
-      cards.length = 0;
+      cards.forEach((card, idx) => {
+        if (idx >= currentIndex - 1 && idx < currentIndex + 4) {
+          cards[idx] = null;
+        }
+      });
       updateStack();
     }
   }
@@ -327,11 +454,23 @@
     });
   });
   
-  document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1);
-  document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1);
+  document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1, {duration: 200});
+  document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1, {duration: 200});
   
-  // Initialize
-  updateStack();
+  // Initialize after map is ready
+  map.on('idle', () => {
+    if (!mapReady) {
+      mapReady = true;
+      
+      // Initialize stack without animation
+      updateStack(true);
+      
+      // Then animate to first card after a short delay
+      setTimeout(() => {
+        flyToMarkerImproved(0);
+      }, 1500);
+    }
+  });
 </script>
 </body>
 </html>
