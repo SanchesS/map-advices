@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <style>
+    
     html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f5f5f5}
     #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
     .map-controls{position:absolute;top:20px;right:20px;z-index:10;display:flex;flex-direction:column;gap:12px}
@@ -13,9 +14,9 @@
     .map-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
     .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
     
-    .card-container{position:absolute;left:0;right:0;bottom:0;height:400px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px;transition:transform 500ms cubic-bezier(0.4,0,0.2,1)}
-    .card-container.minimized{transform:translateY(320px)}
-    .card-stack{position:relative;width:100%;max-width:400px;height:360px;pointer-events:auto}
+    .card-container{position:absolute;left:0;right:0;bottom:0;height:370px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px;transition:transform 500ms cubic-bezier(0.4,0,0.2,1)}
+    .card-container.minimized{transform:translateY(290px)}
+    .card-stack{position:relative;width:100%;max-width:400px;height:330px;pointer-events:auto}
     
     .skeleton-loader{position:absolute;width:100%;max-width:400px;height:360px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15);display:flex;flex-direction:column}
     .skeleton-header{padding:20px 20px 16px;background:#fff}
@@ -50,9 +51,9 @@
     .slide-rating svg{width:16px;height:16px;fill:#FFB800}
     .slide-address{font-size:14px;color:#666;margin:0;line-height:1.4}
     
-    .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden;cursor:pointer}
+    .slide-image-container{position:relative;width:100%;height:170px;overflow:hidden;cursor:pointer;background:#f0f0f0}
     .slide-images{display:flex;height:100%;transition:transform .3s ease}
-    .slide-img{width:100%;height:100%;object-fit:cover;flex-shrink:0}
+    .slide-img{width:100%;height:100%;object-fit:cover;object-position:center;flex-shrink:0;background:#f0f0f0}
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
     .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
@@ -81,7 +82,7 @@
     .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;opacity:0;transform:scale(0);animation:marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards}
     .marker.passive{opacity:0.85;transform:scale(0.85)}
     .marker.active{border-color:#4CAF50;box-shadow:0 0 0 6px rgba(76,175,80,0.2),0 4px 16px rgba(0,0,0,.12);transform:scale(1);z-index:10}
-    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover}
+    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover;object-position:center}
     .marker-badge{position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
     .marker-badge-inner{background:#4CAF50;color:#fff;font-size:14px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
     
@@ -94,18 +95,23 @@
     @media (max-width:600px){
       .card-stack{max-width:calc(100% - 24px)}
       .skeleton-loader{max-width:calc(100% - 24px)}
-      .card-container{height:420px;padding-bottom:16px}
-      .card-container.minimized{transform:translateY(336px)}
+      .card-container{height:390px;padding-bottom:16px}
+      .card-container.minimized{transform:translateY(306px)}
       .map-controls{top:70px;right:16px}
     }
+
+
   </style>
 </head>
 <body>
+
 <div id="map"></div>
 <div class="map-controls">
   <div class="map-btn" id="zoom-in">+</div>
   <div class="map-btn" id="zoom-out">−</div>
 </div>
+
+
 <div class="card-container">
   <div class="skeleton-loader" id="skeleton-loader">
     <div class="skeleton-header">
@@ -240,32 +246,72 @@
   }
 
   function getPhotosFromItem(item) {
-    const photos = [];
+    // Always use fallback photos initially - real photos will be fetched from Photo API
+    const randomPhoto = randomFrom(FALLBACK_PHOTOS);
+    return [randomPhoto];
+  }
+
+  // Enhanced photo fetcher using 2GIS Photo API
+  async function fetchPhotosFromAPI(objectIds) {
+    try {
+      const response = await fetch('/api/photos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ object_ids: objectIds })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching photos from API:', error);
+      return null;
+    }
+  }
+
+  // Global debug settings
+  let debugSettings = {
+    photoSizePriority: ['656x340', '328x170', '232x232', '176x176'],
+    objectFit: 'cover',
+    containerHeight: 170
+  };
+
+  // Process photo API response to extract best quality photos
+  function processPhotoAPIResponse(photoData, objectId) {
+    if (!photoData || !photoData.items || !photoData.items[objectId]) {
+      return [];
+    }
     
-    // First priority: main_photo_url from external_content
-    if (item.external_content && item.external_content.length > 0) {
-      const mainContent = item.external_content[0];
-      if (mainContent.main_photo_url) {
-        photos.push(mainContent.main_photo_url);
+    const photos = photoData.items[objectId];
+    const processedPhotos = [];
+    
+    for (const photo of photos.slice(0, 5)) { // Take up to 5 photos
+      if (photo.media_type === 'photo' && photo.photo && photo.photo.preview_urls) {
+        // Use debug settings for photo size priority
+        let photoUrl = null;
+        for (const size of debugSettings.photoSizePriority) {
+          if (photo.photo.preview_urls[size]) {
+            photoUrl = photo.photo.preview_urls[size];
+            break;
+          }
+        }
+        
+        if (photoUrl) {
+          processedPhotos.push({
+            url: photoUrl,
+            availableSizes: Object.keys(photo.photo.preview_urls),
+            selectedSize: debugSettings.photoSizePriority.find(size => photo.photo.preview_urls[size])
+          });
+        }
       }
     }
     
-    // Secondary: other photos if available
-    if (item.photos && item.photos.length > 0) {
-      photos.push(...item.photos.map(photo => photo.url || photo));
-    }
-    
-    if (item.cover && item.cover.url) {
-      photos.push(item.cover.url);
-    }
-    
-    // Fallback to stock photos if no real photos found
-    if (photos.length === 0) {
-      const randomPhoto = randomFrom(FALLBACK_PHOTOS);
-      photos.push(randomPhoto);
-    }
-    
-    return photos.slice(0, 3);
+    return processedPhotos;
   }
 
   // API fetch function
@@ -301,8 +347,9 @@
   }
 
   // Transform API data to our format
-  function transformApiData(items) {
-    return items.map((item, index) => {
+  async function transformApiData(items) {
+    // First pass: create basic data structure
+    companies = items.map((item, index) => {
       const coords = item.point ? [item.point.lon, item.point.lat] : MOSCOW_CENTER;
       
       let rating = '4.0';
@@ -324,7 +371,7 @@
         name: item.name_ex?.primary || item.name || `Место ${index + 1}`,
         address: formatAddress(item.address_name || item.address),
         coords: coords,
-        photos: getPhotosFromItem(item),
+        photos: getPhotosFromItem(item), // Fallback photos
         friends: friends,
         tags: createTagsFromStopFactors(item.context),
         rating: rating,
@@ -332,6 +379,37 @@
         originalData: item
       };
     });
+
+    // Second pass: enhance with photos from 2GIS Photo API
+    try {
+      const objectIds = companies.map(company => company.id).filter(id => id && !id.startsWith('place_'));
+      
+      if (objectIds.length > 0) {
+        console.log('Fetching photos for object IDs:', objectIds);
+        const photoData = await fetchPhotosFromAPI(objectIds);
+        
+        if (photoData) {
+          // Update companies with enhanced photos
+          companies.forEach((company, index) => {
+            if (company.id && !company.id.startsWith('place_')) {
+              const apiPhotos = processPhotoAPIResponse(photoData, company.id);
+              if (apiPhotos.length > 0) {
+                console.log(`Found ${apiPhotos.length} photos for ${company.name}:`, apiPhotos);
+                company.photos = apiPhotos.map(photo => photo.url);
+                // Also update the marker image to use the first Photo API photo
+                company.markerPhoto = apiPhotos[0].url;
+                company.photoDebugInfo = apiPhotos[0]; // Store debug info for first photo
+              }
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error enhancing with photo API:', error);
+      // Continue with fallback photos
+    }
+
+    return companies;
   }
 
   // Error display function
@@ -398,7 +476,7 @@
       try {
         // Fetch real data from 2GIS API
         const apiItems = await fetchPlacesData();
-        companies = transformApiData(apiItems);
+        companies = await transformApiData(apiItems);
         
         console.log('Transformed companies:', companies);
         
@@ -412,7 +490,8 @@
           el.className = 'marker passive';
           el.style.opacity = '0';
           el.style.transform = 'scale(0)';
-          el.innerHTML = `<img class="marker-img" src="${c.photos[0]}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
+          const markerImageSrc = c.markerPhoto || c.photos[0] || randomFrom(FALLBACK_PHOTOS);
+          el.innerHTML = `<img class="marker-img" src="${markerImageSrc}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
             <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
           const mk = new mapgl.HtmlMarker(map, {coordinates: c.coords, html: el});
           markers[idx] = {marker: mk, el, coords: c.coords};
@@ -477,7 +556,7 @@
   // Card stack implementation
   let currentIndex = 0;
   const cardStack = document.getElementById('card-stack');
-  const cards = [];
+      let cards = [];
   const photoIndexes = new Map(); // Track photo index for each card
   
   function createCard(company, index) {
@@ -487,7 +566,7 @@
     photoIndexes.set(index, 0);
     
     const photosHtml = company.photos.map(photo => 
-      `<img class="slide-img" src="${photo}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>`
+      `<img class="slide-img" src="${photo}" alt="" style="object-fit: ${debugSettings.objectFit}; width: ${100 / company.photos.length}%;" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>`
     ).join('');
     
     const dotsHtml = company.photos.length > 1 ? 
@@ -514,7 +593,7 @@
         </div>
         <p class="slide-address">${company.workingHours} • ${company.address}</p>
       </div>
-      <div class="slide-image-container">
+      <div class="slide-image-container" style="height: ${debugSettings.containerHeight}px;">
         <div class="slide-images" style="width: ${company.photos.length * 100}%">
           ${photosHtml}
         </div>
@@ -578,7 +657,7 @@
     const imagesContainer = card.querySelector('.slide-images');
     const dots = card.querySelectorAll('.story-dot');
     
-    imagesContainer.style.transform = `translateX(-${currentPhotoIndex * 100}%)`;
+    imagesContainer.style.transform = `translateX(-${currentPhotoIndex * (100 / totalPhotos)}%)`;
     
     dots.forEach((dot, i) => {
       dot.classList.toggle('active', i === currentPhotoIndex);
@@ -851,6 +930,8 @@
   
   document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1, {duration: 200});
   document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1, {duration: 200});
+
+
 </script>
 </body>
 </html>
