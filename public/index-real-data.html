@@ -54,7 +54,7 @@
     
     .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden;cursor:pointer}
     .slide-images{display:flex;height:100%;transition:transform .3s ease}
-    .slide-img{width:100%;height:100%;object-fit:cover;flex-shrink:0}
+    .slide-img{width:100%;height:100%;object-fit:cover;object-position:center;flex-shrink:0}
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
     .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
@@ -83,7 +83,7 @@
     .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;opacity:0;transform:scale(0);animation:marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards}
     .marker.passive{opacity:0.85;transform:scale(0.85)}
     .marker.active{border-color:#4CAF50;box-shadow:0 0 0 6px rgba(76,175,80,0.2),0 4px 16px rgba(0,0,0,.12);transform:scale(1);z-index:10}
-    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover}
+    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover;object-position:center}
     .marker-badge{position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
     .marker-badge-inner{background:#4CAF50;color:#fff;font-size:14px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
     
@@ -243,32 +243,9 @@
   }
 
   function getPhotosFromItem(item) {
-    const photos = [];
-    
-    // First priority: main_photo_url from external_content
-    if (item.external_content && item.external_content.length > 0) {
-      const mainContent = item.external_content[0];
-      if (mainContent.main_photo_url) {
-        photos.push(mainContent.main_photo_url);
-      }
-    }
-    
-    // Secondary: other photos if available
-    if (item.photos && item.photos.length > 0) {
-      photos.push(...item.photos.map(photo => photo.url || photo));
-    }
-    
-    if (item.cover && item.cover.url) {
-      photos.push(item.cover.url);
-    }
-    
-    // Fallback to stock photos if no real photos found
-    if (photos.length === 0) {
-      const randomPhoto = randomFrom(FALLBACK_PHOTOS);
-      photos.push(randomPhoto);
-    }
-    
-    return photos.slice(0, 3);
+    // Always use fallback photos initially - real photos will be fetched from Photo API
+    const randomPhoto = randomFrom(FALLBACK_PHOTOS);
+    return [randomPhoto];
   }
 
   // Enhanced photo fetcher using 2GIS Photo API
@@ -305,9 +282,9 @@
     
     for (const photo of photos.slice(0, 5)) { // Take up to 5 photos
       if (photo.media_type === 'photo' && photo.photo && photo.photo.preview_urls) {
-        // Prefer 328x170 size for cards, fallback to larger sizes
-        const photoUrl = photo.photo.preview_urls['328x170'] || 
-                        photo.photo.preview_urls['656x340'] || 
+        // Prefer 656x340 size for better quality, then fallbacks
+        const photoUrl = photo.photo.preview_urls['656x340'] || 
+                        photo.photo.preview_urls['328x170'] || 
                         photo.photo.preview_urls['232x232'] || 
                         photo.photo.preview_urls['176x176'];
         
@@ -396,12 +373,14 @@
         
         if (photoData) {
           // Update companies with enhanced photos
-          companies.forEach(company => {
+          companies.forEach((company, index) => {
             if (company.id && !company.id.startsWith('place_')) {
               const apiPhotos = processPhotoAPIResponse(photoData, company.id);
               if (apiPhotos.length > 0) {
                 console.log(`Found ${apiPhotos.length} photos for ${company.name}:`, apiPhotos);
                 company.photos = apiPhotos;
+                // Also update the marker image to use the first Photo API photo
+                company.markerPhoto = apiPhotos[0];
               }
             }
           });
@@ -493,7 +472,8 @@
           el.className = 'marker passive';
           el.style.opacity = '0';
           el.style.transform = 'scale(0)';
-          el.innerHTML = `<img class="marker-img" src="${c.photos[0]}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
+          const markerImageSrc = c.markerPhoto || c.photos[0] || randomFrom(FALLBACK_PHOTOS);
+          el.innerHTML = `<img class="marker-img" src="${markerImageSrc}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
             <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
           const mk = new mapgl.HtmlMarker(map, {coordinates: c.coords, html: el});
           markers[idx] = {marker: mk, el, coords: c.coords};
