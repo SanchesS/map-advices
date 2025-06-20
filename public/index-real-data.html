@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <style>
+    .version-switcher{position:fixed;top:10px;left:10px;z-index:1000;background:rgba(0,0,0,0.8);color:#fff;padding:8px 16px;border-radius:8px;font-size:14px;text-decoration:none}
+    .version-switcher:hover{background:rgba(0,0,0,0.9)}
     html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f5f5f5}
     #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
     .map-controls{position:absolute;top:20px;right:20px;z-index:10;display:flex;flex-direction:column;gap:12px}
@@ -101,6 +103,7 @@
   </style>
 </head>
 <body>
+<a href="index.html" class="version-switcher">🔄 Mock Data Version</a>
 <div id="map"></div>
 <div class="map-controls">
   <div class="map-btn" id="zoom-in">+</div>
@@ -268,6 +271,55 @@
     return photos.slice(0, 3);
   }
 
+  // Enhanced photo fetcher using 2GIS Photo API
+  async function fetchPhotosFromAPI(objectIds) {
+    try {
+      const response = await fetch('/api/photos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ object_ids: objectIds })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching photos from API:', error);
+      return null;
+    }
+  }
+
+  // Process photo API response to extract best quality photos
+  function processPhotoAPIResponse(photoData, objectId) {
+    if (!photoData || !photoData.items || !photoData.items[objectId]) {
+      return [];
+    }
+    
+    const photos = photoData.items[objectId];
+    const processedPhotos = [];
+    
+    for (const photo of photos.slice(0, 5)) { // Take up to 5 photos
+      if (photo.media_type === 'photo' && photo.photo && photo.photo.preview_urls) {
+        // Prefer 328x170 size for cards, fallback to larger sizes
+        const photoUrl = photo.photo.preview_urls['328x170'] || 
+                        photo.photo.preview_urls['656x340'] || 
+                        photo.photo.preview_urls['232x232'] || 
+                        photo.photo.preview_urls['176x176'];
+        
+        if (photoUrl) {
+          processedPhotos.push(photoUrl);
+        }
+      }
+    }
+    
+    return processedPhotos;
+  }
+
   // API fetch function
   async function fetchPlacesData() {
     try {
@@ -301,8 +353,9 @@
   }
 
   // Transform API data to our format
-  function transformApiData(items) {
-    return items.map((item, index) => {
+  async function transformApiData(items) {
+    // First pass: create basic data structure
+    const companies = items.map((item, index) => {
       const coords = item.point ? [item.point.lon, item.point.lat] : MOSCOW_CENTER;
       
       let rating = '4.0';
@@ -324,7 +377,7 @@
         name: item.name_ex?.primary || item.name || `Место ${index + 1}`,
         address: formatAddress(item.address_name || item.address),
         coords: coords,
-        photos: getPhotosFromItem(item),
+        photos: getPhotosFromItem(item), // Fallback photos
         friends: friends,
         tags: createTagsFromStopFactors(item.context),
         rating: rating,
@@ -332,6 +385,34 @@
         originalData: item
       };
     });
+
+    // Second pass: enhance with photos from 2GIS Photo API
+    try {
+      const objectIds = companies.map(company => company.id).filter(id => id && !id.startsWith('place_'));
+      
+      if (objectIds.length > 0) {
+        console.log('Fetching photos for object IDs:', objectIds);
+        const photoData = await fetchPhotosFromAPI(objectIds);
+        
+        if (photoData) {
+          // Update companies with enhanced photos
+          companies.forEach(company => {
+            if (company.id && !company.id.startsWith('place_')) {
+              const apiPhotos = processPhotoAPIResponse(photoData, company.id);
+              if (apiPhotos.length > 0) {
+                console.log(`Found ${apiPhotos.length} photos for ${company.name}:`, apiPhotos);
+                company.photos = apiPhotos;
+              }
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error enhancing with photo API:', error);
+      // Continue with fallback photos
+    }
+
+    return companies;
   }
 
   // Error display function
@@ -398,7 +479,7 @@
       try {
         // Fetch real data from 2GIS API
         const apiItems = await fetchPlacesData();
-        companies = transformApiData(apiItems);
+        companies = await transformApiData(apiItems);
         
         console.log('Transformed companies:', companies);
         
