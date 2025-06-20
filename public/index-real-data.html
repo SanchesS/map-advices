@@ -52,9 +52,9 @@
     .slide-rating svg{width:16px;height:16px;fill:#FFB800}
     .slide-address{font-size:14px;color:#666;margin:0;line-height:1.4}
     
-    .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden;cursor:pointer}
+    .slide-image-container{position:relative;width:100%;height:200px;overflow:hidden;cursor:pointer;background:#f0f0f0}
     .slide-images{display:flex;height:100%;transition:transform .3s ease}
-    .slide-img{width:100%;height:100%;object-fit:cover;object-position:center;flex-shrink:0}
+    .slide-img{width:100%;height:100%;object-fit:cover;object-position:center;flex-shrink:0;background:#f0f0f0}
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
     .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
@@ -282,11 +282,11 @@
     
     for (const photo of photos.slice(0, 5)) { // Take up to 5 photos
       if (photo.media_type === 'photo' && photo.photo && photo.photo.preview_urls) {
-        // Prefer 656x340 size for better quality, then fallbacks
-        const photoUrl = photo.photo.preview_urls['656x340'] || 
-                        photo.photo.preview_urls['328x170'] || 
+        // Prefer 328x170 size for cards (better aspect ratio), then fallbacks
+        const photoUrl = photo.photo.preview_urls['328x170'] || 
                         photo.photo.preview_urls['232x232'] || 
-                        photo.photo.preview_urls['176x176'];
+                        photo.photo.preview_urls['176x176'] || 
+                        photo.photo.preview_urls['656x340'];
         
         if (photoUrl) {
           processedPhotos.push(photoUrl);
