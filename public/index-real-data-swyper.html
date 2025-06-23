@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>City Top-50 Prototype - Enhanced Swiper</title>
+  <title>City Top-50 Prototype - Real Data</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <style>
@@ -35,28 +35,14 @@
     @keyframes skeleton-loading{to{left:100%}}
     @keyframes loader-bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
     
-    .card{position:absolute;width:100%;height:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12);opacity:0;transform:translateY(100vh);transition:all .4s cubic-bezier(.25,.8,.25,1);cursor:grab;transform-origin:center bottom;perspective:1000px}
+    .card{position:absolute;width:100%;height:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12);opacity:0;transform:translateY(100vh);transition:all .4s cubic-bezier(.25,.8,.25,1);cursor:grab}
     .card.dragging{cursor:grabbing;transition:none}
-    .card.swipe-animating{transition:all .6s cubic-bezier(.4,.0,.2,1)}
     
     .card.visible{opacity:1}
-    .card.stack-0{transform:translate(0, 0) rotate(0deg) scale(1);box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:4;opacity:1}
-    .card.stack-1{transform:translate(-8px, -20px) rotate(-3deg) scale(0.96);box-shadow:0 4px 20px rgba(0,0,0,.10);z-index:3;opacity:0.9;filter:brightness(0.95)}
-    .card.stack-2{transform:translate(8px, -40px) rotate(3deg) scale(0.92);box-shadow:0 2px 12px rgba(0,0,0,.08);z-index:2;opacity:0.8;filter:brightness(0.9)}
-    .card.stack-3{transform:translate(-4px, -60px) rotate(-2deg) scale(0.88);box-shadow:0 2px 8px rgba(0,0,0,.06);z-index:1;opacity:0.7;filter:brightness(0.85)}
-    .card.stack-4{transform:translate(4px, -80px) rotate(2deg) scale(0.84);box-shadow:0 1px 4px rgba(0,0,0,.04);z-index:0;opacity:0.6;filter:brightness(0.8)}
-    
-    /* Enhanced swipe animation states */
-    .card.swipe-out-up{transform:translate(0, -120vh) rotate(-15deg) scale(0.8);opacity:0;transition:all .6s cubic-bezier(.6,.0,.4,1)}
-    .card.swipe-out-down{transform:translate(0, 120vh) rotate(15deg) scale(0.8);opacity:0;transition:all .6s cubic-bezier(.6,.0,.4,1)}
-    .card.swipe-preview{transform:translate(0, -50px) rotate(-8deg) scale(0.95);opacity:0.7;transition:all .3s cubic-bezier(.25,.8,.25,1)}
-    
-    /* Layered stacking effect during swipe */
-    .card.layered-0{transform:translate(0, 0) rotate(0deg) scale(1);z-index:10;opacity:1}
-    .card.layered-1{transform:translate(-12px, -25px) rotate(-4deg) scale(0.94);z-index:9;opacity:0.85;filter:brightness(0.93)}
-    .card.layered-2{transform:translate(12px, -50px) rotate(4deg) scale(0.88);z-index:8;opacity:0.7;filter:brightness(0.86)}
-    .card.layered-3{transform:translate(-8px, -75px) rotate(-3deg) scale(0.82);z-index:7;opacity:0.55;filter:brightness(0.79)}
-    .card.layered-4{transform:translate(8px, -100px) rotate(3deg) scale(0.76);z-index:6;opacity:0.4;filter:brightness(0.72)}
+    .card.stack-0{transform:translate(0, 0) rotate(0deg);box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:4}
+    .card.stack-1{transform:translate(-6px, -15px) rotate(-2deg);box-shadow:0 4px 20px rgba(0,0,0,.10);z-index:3}
+    .card.stack-2{transform:translate(6px, -30px) rotate(2deg);box-shadow:0 2px 12px rgba(0,0,0,.08);z-index:2}
+    .card.stack-3{transform:translate(-3px, -45px) rotate(-1deg);box-shadow:0 2px 8px rgba(0,0,0,.06);z-index:1}
     
     .slide-header{padding:20px 20px 16px;background:#fff}
     .slide-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -573,6 +559,9 @@
       let cards = [];
   const photoIndexes = new Map(); // Track photo index for each card
   
+  let dragPrevCard = null; // Temp card shown during backward drag
+  const BACK_START = -150; // starting Y offset (px) for appearing previous card
+  
   function createCard(company, index) {
     const card = document.createElement('div');
     card.className = 'card';
@@ -678,8 +667,8 @@
     });
   }
   
-  function updateStack(skipAnimation = false, useLayeredEffect = false) {
-    const visibleCount = 5; // Increased for better layering effect
+  function updateStack(skipAnimation = false) {
+    const visibleCount = 4;
     
     // First, hide all existing cards
     cards.forEach(card => {
@@ -702,18 +691,12 @@
         }
         card.style.display = 'block';
       }
-      
-      // Apply enhanced layered effect or standard stacking
-      if (useLayeredEffect) {
-        card.className = `card visible swipe-animating layered-${i}`;
-      } else {
-        card.className = `card visible stack-${i}`;
-      }
+      card.className = `card visible stack-${i}`;
     }
     
     // Clean up very old cards
-    if (currentIndex > 5) {
-      for (let i = 0; i < currentIndex - 5; i++) {
+    if (currentIndex > 4) {
+      for (let i = 0; i < currentIndex - 4; i++) {
         if (cards[i] && cards[i].parentNode) {
           cards[i].remove();
           cards[i] = null;
@@ -730,159 +713,146 @@
     }
   }
   
-  // Enhanced Touch/drag handling with improved animations
+  // Touch/drag handling
   let startY = 0;
   let currentY = 0;
   let isDragging = false;
   let dragThreshold = 80;
-  let swipeVelocity = 0;
-  let lastMoveTime = 0;
-  let isSwipeAnimating = false;
   
   function handleStart(e) {
     const topCard = cards[currentIndex];
-    if (!topCard || topCard !== e.target.closest('.card') || isSwipeAnimating) return;
+    if (!topCard || topCard !== e.target.closest('.card')) return;
     
     // Don't start drag if clicking on photo nav or action buttons
     if (e.target.closest('.photo-nav') || e.target.closest('.slide-action')) return;
     
     isDragging = true;
     startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    lastMoveTime = Date.now();
-    swipeVelocity = 0;
+    currentY = startY;
+    dragPrevCard = null; // reset temp card reference
     topCard.classList.add('dragging');
-    
-    // Apply layered effect while dragging
-    updateStack(true, true);
   }
   
   function handleMove(e) {
     if (!isDragging) return;
     e.preventDefault();
     
-    const now = Date.now();
     currentY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
     const deltaY = currentY - startY;
     const topCard = cards[currentIndex];
     
-    // Calculate velocity for enhanced animations
-    const timeDelta = now - lastMoveTime;
-    if (timeDelta > 0) {
-      swipeVelocity = deltaY / timeDelta;
-    }
-    lastMoveTime = now;
-    
-    // Enhanced transform with perspective and scale
-    const rotation = deltaY * 0.03;
-    const scale = Math.max(0.85, 1 - Math.abs(deltaY) / 1000);
-    const opacity = Math.max(0.3, 1 - Math.abs(deltaY) / 400);
-    
-    topCard.style.transform = `translateY(${deltaY}px) rotate(${rotation}deg) scale(${scale})`;
-    topCard.style.opacity = opacity;
-    
-    // Show preview of next/previous card based on swipe direction
-    if (Math.abs(deltaY) > 50) {
-      if (deltaY < 0 && currentIndex < companies.length - 1) {
-        // Swiping up - show preview of next card
-        const nextCard = cards[currentIndex + 1];
-        if (nextCard) {
-          nextCard.classList.add('swipe-preview');
-        }
-      } else if (deltaY > 0 && currentIndex > 0) {
-        // Swiping down - show preview of previous card
-        const prevCard = cards[currentIndex - 1];
-        if (prevCard && prevCard.parentNode) {
-          prevCard.classList.add('swipe-preview');
-        }
+    if (deltaY < 0) {
+      // Forward swipe (up) — move current card with finger
+      topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
+      topCard.style.opacity = 1 - Math.abs(deltaY) / 300;
+      // Ensure any temp previous card is removed if user changes direction
+      if (dragPrevCard) {
+        dragPrevCard.remove();
+        dragPrevCard = null;
       }
+    } else if (currentIndex > 0) {
+      // Backward swipe (down) — reveal previous card interactively
+      // Keep current top card fixed
+      topCard.style.transform = '';
+      topCard.style.opacity = '';
+      
+      const pIdx = prevIndex(currentIndex);
+      if (!dragPrevCard) {
+        // Create card if it does not exist yet
+        dragPrevCard = cards[pIdx] || createCard(companies[pIdx], pIdx);
+        cards[pIdx] = dragPrevCard;
+        dragPrevCard.style.display = 'block';
+        dragPrevCard.style.position = 'absolute';
+        dragPrevCard.style.left = '0';
+        dragPrevCard.style.right = '0';
+        dragPrevCard.style.transition = 'none';
+        dragPrevCard.style.zIndex = '5';
+        dragPrevCard.style.transform = `translateY(${BACK_START}px) rotate(5deg)`;
+        dragPrevCard.style.opacity = '0';
+        dragPrevCard.className = 'card visible';
+        cardStack.appendChild(dragPrevCard);
+      }
+      // Calculate transform, rotation, opacity to mirror forward drag
+      const translateY = Math.min(0, BACK_START + deltaY); // moves from BACK_START to 0
+      const progress = 1 - Math.abs(translateY / BACK_START); // 0 -> 1
+      const rotation = 5 * (1 - progress); // 5deg -> 0deg
+      dragPrevCard.style.transform = `translateY(${translateY}px) rotate(${rotation}deg)`;
+      dragPrevCard.style.opacity = progress;
     }
   }
   
   function handleEnd() {
     if (!isDragging) return;
     isDragging = false;
-    isSwipeAnimating = true;
     
     const topCard = cards[currentIndex];
     topCard.classList.remove('dragging');
     
     const deltaY = currentY - startY;
-    const velocityThreshold = 0.5;
-    const fastSwipe = Math.abs(swipeVelocity) > velocityThreshold;
-    const threshold = fastSwipe ? dragThreshold * 0.6 : dragThreshold;
     
-    // Clear any preview classes
-    cards.forEach(card => {
-      if (card) card.classList.remove('swipe-preview');
-    });
-    
-    if ((deltaY < -threshold || (deltaY < -30 && swipeVelocity < -velocityThreshold)) && currentIndex < companies.length - 1) {
-      // Swipe up - next card with enhanced animation
-      performSwipeAnimation('up', topCard);
-    } else if ((deltaY > threshold || (deltaY > 30 && swipeVelocity > velocityThreshold)) && currentIndex > 0) {
-      // Swipe down - previous card with enhanced animation
-      performSwipeAnimation('down', topCard);
+    if (deltaY < -dragThreshold && currentIndex < companies.length - 1) {
+      // Swipe up - next card
+      topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+      topCard.style.opacity = '0';
+      currentIndex = nextIndex(currentIndex);
+      updateStack();
+    } else if (deltaY < -dragThreshold && currentIndex === companies.length -1) {
+      // Swipe up from last card to first (loop)
+      topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+      topCard.style.opacity = '0';
+      currentIndex = 0;
+      updateStack();
+    } else if (deltaY > dragThreshold && currentIndex === 0) {
+      // Swipe down from first card to last (loop)
+      const pIdx = companies.length -1;
+      let prevCard = dragPrevCard || cards[pIdx] || createCard(companies[pIdx], pIdx);
+      cards[pIdx] = prevCard;
+      prevCard.style.display='block';
+      cardStack.appendChild(prevCard);
+      prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+      prevCard.style.transform='';
+      prevCard.style.opacity='1';
+      prevCard.className='card visible stack-0';
+      topCard.className='card visible stack-1';
+      setTimeout(()=>{
+        currentIndex = pIdx;
+        dragPrevCard=null;
+        updateStack();
+      },420);
+    } else if (deltaY > dragThreshold && currentIndex > 0) {
+      // Commit backward swipe — animate previous card into place
+      const pIdx = prevIndex(currentIndex);
+      // Ensure previous card element exists
+      let prevCard = dragPrevCard || cards[pIdx];
+      if (!prevCard) {
+        prevCard = createCard(companies[pIdx], pIdx);
+        cards[pIdx] = prevCard;
+        prevCard.style.display = 'block';
+        cardStack.appendChild(prevCard);
+      }
+      // Animate into position
+      prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+      prevCard.style.transform = '';
+      prevCard.style.opacity = '1';
+      prevCard.className = 'card visible stack-0';
+      
+      // Demote current top card
+      topCard.className = 'card visible stack-1';
+      
+      // After animation finishes, update indices and stack
+      setTimeout(() => {
+        currentIndex = pIdx;
+        dragPrevCard = null;
+        updateStack();
+      }, 420);
     } else {
-      // Return to position with spring animation
-      topCard.classList.add('swipe-animating');
+      // Return to position
       topCard.style.transform = '';
       topCard.style.opacity = '';
-      
-      // Reset to standard stack after return animation
-      setTimeout(() => {
-        updateStack(true, false);
-        isSwipeAnimating = false;
-      }, 300);
     }
     
     startY = 0;
     currentY = 0;
-    swipeVelocity = 0;
-  }
-  
-  function performSwipeAnimation(direction, card) {
-    const isUp = direction === 'up';
-    const exitTransform = isUp ? 
-      'translateY(-150vh) rotate(-20deg) scale(0.7)' : 
-      'translateY(150vh) rotate(20deg) scale(0.7)';
-    
-    // Add swipe animation class for smooth exit
-    card.classList.add(isUp ? 'swipe-out-up' : 'swipe-out-down');
-    card.style.transform = exitTransform;
-    card.style.opacity = '0';
-    
-    // Animate remaining cards with layered effect
-    const remainingCards = cards.slice(currentIndex + 1, currentIndex + 5);
-    remainingCards.forEach((remainingCard, i) => {
-      if (remainingCard) {
-        setTimeout(() => {
-          remainingCard.classList.add('swipe-animating');
-          remainingCard.className = `card visible swipe-animating layered-${i}`;
-        }, i * 50);
-      }
-    });
-    
-    // Update index and rebuild stack
-    setTimeout(() => {
-      if (isUp) {
-        currentIndex++;
-      } else {
-        currentIndex--;
-        // For going back, need to rebuild stack completely
-        cardStack.innerHTML = '';
-        for (let i = currentIndex; i < currentIndex + 5 && i < companies.length; i++) {
-          cards[i] = null;
-        }
-      }
-      
-      updateStack(false, true);
-      
-      // Reset animation state after layered effect settles
-      setTimeout(() => {
-        updateStack(true, false);
-        isSwipeAnimating = false;
-      }, 800);
-    }, isUp ? 200 : 100);
   }
   
   // Event listeners
@@ -1035,6 +1005,9 @@
   document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1, {duration: 200});
   document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1, {duration: 200});
 
+  // Helper functions for cyclic indices
+  function prevIndex(idx){return (idx - 1 + companies.length) % companies.length;}
+  function nextIndex(idx){return (idx + 1) % companies.length;}
 
 </script>
 </body>
