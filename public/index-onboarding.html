@@ -569,14 +569,23 @@
           }, (i + 1) * 30);
         });
         
-        // After loading period, initialize cards and fly to first marker
+        // Start card animation immediately while markers are appearing
         setTimeout(() => {
-          document.getElementById('skeleton-loader').style.display = 'none';
+          // Prepare card stack (but keep skeleton visible)
           cardStack.style.display = 'block';
-          
-          // Create cards but keep them hidden for animation
           updateStackForAnimation();
           
+          // Start falling animation while markers are still popping up
+          playOnboardingAnimation(selectedAnimation);
+        }, 300); // Short delay to let first marker start appearing
+        
+        // Hide skeleton loader after cards start falling
+        setTimeout(() => {
+          document.getElementById('skeleton-loader').style.display = 'none';
+        }, 600);
+        
+        // Setup marker interactions and map positioning after initial animations
+        setTimeout(() => {
           markers.forEach((m, i) => {
             if (m) {
               m.el.addEventListener('click', () => {
@@ -595,13 +604,10 @@
           
           flyToFirstMarker();
           
-          // Trigger onboarding animation immediately (no delay)
-          playOnboardingAnimation(selectedAnimation);
-          
           setTimeout(() => {
             isInitializing = false;
           }, 1000);
-        }, 1500);
+        }, 800);
         
       } catch (error) {
         console.error('Failed to load places data:', error);
