@@ -562,7 +562,8 @@
           document.getElementById('skeleton-loader').style.display = 'none';
           cardStack.style.display = 'block';
           
-          updateStack(true);
+          // Create cards but keep them hidden for animation
+          updateStackForAnimation();
           
           markers.forEach((m, i) => {
             if (m) {
@@ -582,10 +583,8 @@
           
           flyToFirstMarker();
           
-          // Trigger onboarding animation after cards are created
-          setTimeout(() => {
-            playOnboardingAnimation(selectedAnimation);
-          }, 300);
+          // Trigger onboarding animation immediately (no delay)
+          playOnboardingAnimation(selectedAnimation);
           
           setTimeout(() => {
             isInitializing = false;
@@ -757,6 +756,35 @@
     if (!skipAnimation) {
       flyToMarkerImproved(currentIndex);
     }
+  }
+
+  // Special function to create cards for animation (keeps them hidden)
+  function updateStackForAnimation() {
+    const visibleCount = 4;
+    
+    // Create cards but keep them invisible for animation
+    for (let i = 0; i < visibleCount && currentIndex + i < companies.length; i++) {
+      let card = cards[currentIndex + i];
+      if (!card) {
+        card = createCard(companies[currentIndex + i], currentIndex + i);
+        cards[currentIndex + i] = card;
+        cardStack.appendChild(card);
+      } else {
+        // Re-add card to DOM if it was removed
+        if (!card.parentNode) {
+          cardStack.appendChild(card);
+        }
+      }
+      
+      // Make card invisible but present in DOM for animation
+      card.style.display = 'block';
+      card.style.opacity = '0';
+      card.style.transform = '';
+      card.className = 'card'; // Remove visible class to keep hidden
+    }
+    
+    // Highlight marker
+    highlightMarker(currentIndex);
   }
   
   // Touch/drag handling
