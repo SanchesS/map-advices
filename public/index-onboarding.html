@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>City Top-50 Prototype - Real Data</title>
+  <title>City Top-50 Prototype - Onboarding Experiment</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <style>
@@ -100,6 +100,23 @@
       .map-controls{top:70px;right:16px}
     }
 
+    /* Debug Menu Styles */
+    .debug-menu{position:fixed;top:20px;left:20px;background:rgba(0,0,0,0.9);color:#fff;padding:16px;border-radius:12px;font-size:14px;z-index:1000;max-width:280px}
+    .debug-menu h4{margin:0 0 12px 0;font-size:16px}
+    .debug-option{margin:8px 0;cursor:pointer;padding:8px 12px;border-radius:6px;transition:background 0.2s}
+    .debug-option:hover{background:rgba(255,255,255,0.1)}
+    .debug-option.active{background:rgba(76,175,80,0.3)}
+    .debug-toggle{position:fixed;top:20px;left:20px;background:#333;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer;z-index:1001;font-size:12px}
+
+    /* Onboarding Animation Styles */
+    .onboarding-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s ease}
+    .onboarding-overlay.visible{opacity:1;pointer-events:auto}
+    .onboarding-hint{background:#fff;padding:20px;border-radius:16px;text-align:center;max-width:300px;margin:20px}
+    .onboarding-hint h3{margin:0 0 12px 0;color:#333}
+    .onboarding-hint p{margin:0;color:#666;line-height:1.4}
+    .swipe-hint{font-size:24px;margin:16px 0;animation:swipe-demo 2s infinite ease-in-out}
+    @keyframes swipe-demo{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
 
   </style>
 </head>
@@ -109,6 +126,29 @@
 <div class="map-controls">
   <div class="map-btn" id="zoom-in">+</div>
   <div class="map-btn" id="zoom-out">−</div>
+</div>
+
+<!-- Debug Menu -->
+<div class="debug-toggle" id="debug-toggle">🎮 Debug</div>
+<div class="debug-menu" id="debug-menu" style="display:none">
+  <h4>Onboarding Animations</h4>
+  <div class="debug-option active" data-animation="cascade">1. Cascade Drop</div>
+  <div class="debug-option" data-animation="fan">2. Fan Out & In</div>
+  <div class="debug-option" data-animation="swipe-preview">3. Swipe Preview</div>
+  <div class="debug-option" data-animation="bounce-stack">4. Bounce Stack</div>
+  <div class="debug-option" data-animation="shuffle">5. Shuffle & Stack</div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #444">
+    <div class="debug-option" id="replay-onboarding">🔄 Replay Animation</div>
+  </div>
+</div>
+
+<!-- Onboarding Overlay -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+  <div class="onboarding-hint">
+    <h3>Swipe to explore places!</h3>
+    <div class="swipe-hint">👆</div>
+    <p>Swipe up to see the next place or down to go back</p>
+  </div>
 </div>
 
 
@@ -540,6 +580,11 @@
           }
           
           flyToFirstMarker();
+          
+          // Trigger onboarding animation after cards are created
+          setTimeout(() => {
+            playOnboardingAnimation(selectedAnimation);
+          }, 300);
           
           setTimeout(() => {
             isInitializing = false;
@@ -1008,6 +1053,180 @@
   // Helper functions for cyclic indices
   function prevIndex(idx){return (idx - 1 + companies.length) % companies.length;}
   function nextIndex(idx){return (idx + 1) % companies.length;}
+
+  // Onboarding Animation System
+  let selectedAnimation = 'cascade';
+  let hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding') === 'true';
+
+  // Debug Menu Functionality
+  document.getElementById('debug-toggle').addEventListener('click', function() {
+    const menu = document.getElementById('debug-menu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.querySelectorAll('.debug-option[data-animation]').forEach(option => {
+    option.addEventListener('click', function() {
+      document.querySelectorAll('.debug-option[data-animation]').forEach(opt => opt.classList.remove('active'));
+      this.classList.add('active');
+      selectedAnimation = this.dataset.animation;
+    });
+  });
+
+  document.getElementById('replay-onboarding').addEventListener('click', function() {
+    if (cards.length > 0) {
+      playOnboardingAnimation(selectedAnimation);
+    }
+  });
+
+  // 5 Different Onboarding Animations
+  function playOnboardingAnimation(animationType) {
+    const visibleCards = cards.slice(currentIndex, currentIndex + 4).filter(card => card);
+    if (visibleCards.length === 0) return;
+
+    // Reset all cards to initial state
+    visibleCards.forEach((card, i) => {
+      if (card) {
+        card.style.transition = 'none';
+        card.style.transform = '';
+        card.style.opacity = '0';
+      }
+    });
+
+    setTimeout(() => {
+      switch(animationType) {
+        case 'cascade':
+          animateCascadeDrop(visibleCards);
+          break;
+        case 'fan':
+          animateFanOutIn(visibleCards);
+          break;
+        case 'swipe-preview':
+          animateSwipePreview(visibleCards);
+          break;
+        case 'bounce-stack':
+          animateBounceStack(visibleCards);
+          break;
+        case 'shuffle':
+          animateShuffleStack(visibleCards);
+          break;
+      }
+    }, 50);
+
+    // Show overlay hint after animation
+    if (!hasSeenOnboarding) {
+      setTimeout(() => {
+        document.getElementById('onboarding-overlay').classList.add('visible');
+        setTimeout(() => {
+          document.getElementById('onboarding-overlay').classList.remove('visible');
+          localStorage.setItem('hasSeenOnboarding', 'true');
+          hasSeenOnboarding = true;
+        }, 3000);
+      }, 1600);
+    }
+  }
+
+  // 1. Cascade Drop Animation
+  function animateCascadeDrop(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start from above
+      card.style.transform = 'translateY(-200vh) rotate(0deg)';
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+        card.className = `card visible stack-${i}`;
+      }, i * 150);
+    });
+  }
+
+  // 2. Fan Out & In Animation
+  function animateFanOutIn(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start fanned out
+      const angle = (i - 1.5) * 25;
+      const distance = 100 + i * 30;
+      card.style.transform = `translateX(${Math.sin(angle * Math.PI / 180) * distance}px) translateY(${Math.cos(angle * Math.PI / 180) * distance}px) rotate(${angle}deg)`;
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        card.className = `card visible stack-${i}`;
+      }, 300);
+    });
+  }
+
+  // 3. Swipe Preview Animation
+  function animateSwipePreview(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      card.style.opacity = '1';
+      card.className = `card visible stack-${i}`;
+      
+      if (i === 0) {
+        // Top card shows swipe motion
+        setTimeout(() => {
+          card.style.transition = 'transform 0.4s ease-in-out';
+          card.style.transform = 'translateY(-80px) rotate(-3deg)';
+          
+          setTimeout(() => {
+            card.style.transform = 'translateY(60px) rotate(2deg)';
+            
+            setTimeout(() => {
+              card.style.transform = 'translate(0, 0) rotate(0deg)';
+            }, 400);
+          }, 400);
+        }, 200);
+      }
+    });
+  }
+
+  // 4. Bounce Stack Animation
+  function animateBounceStack(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start from center, scaled down
+      card.style.transform = 'translateY(50px) scale(0.3) rotate(0deg)';
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+        card.className = `card visible stack-${i}`;
+      }, i * 100);
+    });
+  }
+
+  // 5. Shuffle & Stack Animation
+  function animateShuffleStack(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start randomly positioned
+      const randomX = (Math.random() - 0.5) * 400;
+      const randomY = (Math.random() - 0.5) * 300;
+      const randomRotation = (Math.random() - 0.5) * 180;
+      
+      card.style.transform = `translate(${randomX}px, ${randomY}px) rotate(${randomRotation}deg) scale(0.8)`;
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 1s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        card.className = `card visible stack-${i}`;
+      }, 200 + i * 80);
+    });
+  }
+
+  // Dismiss onboarding overlay on click
+  document.getElementById('onboarding-overlay').addEventListener('click', function() {
+    this.classList.remove('visible');
+    localStorage.setItem('hasSeenOnboarding', 'true');
+    hasSeenOnboarding = true;
+  });
 
 </script>
 </body>
