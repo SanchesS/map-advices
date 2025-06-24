@@ -116,6 +116,15 @@
     .onboarding-hint p{margin:0;color:#666;line-height:1.4}
     .swipe-hint{font-size:24px;margin:16px 0;animation:swipe-demo 2s infinite ease-in-out}
     @keyframes swipe-demo{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    
+    /* Card bounce landing animation */
+    @keyframes card-bounce-land{
+      0%{transform:translateY(-200vh) rotate(0deg)}
+      60%{transform:translateY(25px) rotate(var(--target-rotation)) scale(1.02)}
+      75%{transform:translateY(-12px) rotate(var(--target-rotation)) scale(0.98)}
+      90%{transform:translateY(6px) rotate(var(--target-rotation)) scale(1.01)}
+      100%{transform:translateY(0) rotate(var(--target-rotation)) scale(1)}
+    }
 
 
   </style>
@@ -1378,7 +1387,7 @@
       const card = cards[stackIndex];
       if (!card) continue;
       
-      // Start from above, like cascade drop
+      // Start from above
       card.style.transform = 'translateY(-200vh) rotate(0deg)';
       card.style.opacity = '1';
       
@@ -1387,14 +1396,27 @@
       const delay = 400 + pourOrder * 150; // Start pouring after bottom card appears
       
       setTimeout(() => {
-        card.style.transition = 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
-        card.style.transform = finalTransforms[stackIndex] || 'translate(0, 0) rotate(0deg)';
+        // Get rotation for this stack position
+        const rotations = { 0: '0deg', 1: '-2deg', 2: '2deg', 3: '-1deg' };
+        const targetRotation = rotations[stackIndex] || '0deg';
+        
+        // Set CSS custom property for the target rotation
+        card.style.setProperty('--target-rotation', targetRotation);
+        
+        // Apply bouncy landing animation
+        card.style.animation = 'card-bounce-land 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
         card.className = `card visible stack-${stackIndex}`;
+        
+        // Set final transform and position after animation
+        setTimeout(() => {
+          card.style.animation = '';
+          card.style.transform = finalTransforms[stackIndex] || 'translate(0, 0) rotate(0deg)';
+        }, 800);
       }, delay);
     }
     
     // Clean up and ensure final state after animation
-    const totalAnimationTime = 400 + (cards.length - 1) * 150 + 700;
+    const totalAnimationTime = 400 + (cards.length - 1) * 150 + 800; // Increased for bounce animation
     setTimeout(() => {
       setFinalStackState(cards);
     }, totalAnimationTime);
