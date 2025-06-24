@@ -43,3 +43,7 @@ docker run -p 3000:3000 map-advices
 
 These steps are optional but provide a basis for hosting the app so it can be
 accessed from a mobile device.
+
+## iOS Version
+
+A SwiftUI version of the onboarding demo lives in the `ios` directory. Open that folder in Xcode 14 or newer and run it on a simulator to see the draggable card stack and markers on Apple Maps. An onboarding overlay appears the first time the app launches.
