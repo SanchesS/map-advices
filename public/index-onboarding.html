@@ -1364,26 +1364,9 @@
       3: 'translate(-3px, -45px) rotate(-1deg)'
     };
     
-    // Step 1: Show bottom card first with alpha fade-in
-    const bottomCardIndex = cards.length - 1;
-    const bottomCard = cards[bottomCardIndex];
-    
-    if (bottomCard) {
-      // Position bottom card in its final stack position immediately
-      bottomCard.style.transform = finalTransforms[bottomCardIndex] || 'translate(-3px, -45px) rotate(-1deg)';
-      bottomCard.style.opacity = '0';
-      bottomCard.className = `card visible stack-${bottomCardIndex}`;
-      
-      // Fade in bottom card
-      setTimeout(() => {
-        bottomCard.style.transition = 'opacity 0.6s ease-out';
-        bottomCard.style.opacity = '1';
-      }, 100);
-    }
-    
-    // Step 2: Pour cards from above, from bottom to top (excluding bottom card)
-    // This means: stack-2, stack-1, and finally stack-0 (top card that user will interact with)
-    for (let stackIndex = cards.length - 2; stackIndex >= 0; stackIndex--) {
+    // Pour ALL cards from above, starting with bottom card (foundation)
+    // Order: stack-3 (bottom) → stack-2 → stack-1 → stack-0 (top card for interaction)
+    for (let stackIndex = cards.length - 1; stackIndex >= 0; stackIndex--) {
       const card = cards[stackIndex];
       if (!card) continue;
       
@@ -1391,9 +1374,9 @@
       card.style.transform = 'translateY(-200vh) rotate(0deg)';
       card.style.opacity = '1';
       
-      // Calculate delay: start after bottom card, then pour from stack-2 down to stack-0
-      const pourOrder = (cards.length - 2) - stackIndex; // 0 for stack-2, 1 for stack-1, 2 for stack-0
-      const delay = 400 + pourOrder * 150; // Start pouring after bottom card appears
+      // Calculate delay: pour all cards from bottom to top
+      const pourOrder = (cards.length - 1) - stackIndex; // 0 for bottom card, 1 for stack-2, 2 for stack-1, 3 for stack-0
+      const delay = 200 + pourOrder * 150; // Start pouring immediately
       
       setTimeout(() => {
         // Get rotation for this stack position
@@ -1416,7 +1399,7 @@
     }
     
     // Clean up and ensure final state after animation
-    const totalAnimationTime = 400 + (cards.length - 1) * 150 + 800; // Increased for bounce animation
+    const totalAnimationTime = 200 + cards.length * 150 + 800; // All cards now fall with bounce
     setTimeout(() => {
       setFinalStackState(cards);
     }, totalAnimationTime);
