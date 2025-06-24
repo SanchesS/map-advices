@@ -117,12 +117,15 @@
     .swipe-hint{font-size:24px;margin:16px 0;animation:swipe-demo 2s infinite ease-in-out}
     @keyframes swipe-demo{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
     
-    /* Card bounce landing animation */
+    /* Card bounce landing animation with realistic gravity */
     @keyframes card-bounce-land{
-      0%{transform:translateY(-200vh) rotate(0deg)}
-      60%{transform:translateY(25px) rotate(var(--target-rotation)) scale(1.02)}
-      75%{transform:translateY(-12px) rotate(var(--target-rotation)) scale(0.98)}
-      90%{transform:translateY(6px) rotate(var(--target-rotation)) scale(1.01)}
+      /* Gravity fall - starts slow, accelerates (most of the animation time) */
+      0%{transform:translateY(-200vh) rotate(0deg) scale(1);animation-timing-function:cubic-bezier(0.55, 0.055, 0.675, 0.19)}
+      70%{transform:translateY(15px) rotate(var(--target-rotation)) scale(1.04);animation-timing-function:cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+      /* Quick bounces with diminishing returns */
+      82%{transform:translateY(-6px) rotate(var(--target-rotation)) scale(0.98);animation-timing-function:cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+      91%{transform:translateY(2px) rotate(var(--target-rotation)) scale(1.01);animation-timing-function:cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+      96%{transform:translateY(-0.5px) rotate(var(--target-rotation)) scale(0.999);animation-timing-function:ease-out}
       100%{transform:translateY(0) rotate(var(--target-rotation)) scale(1)}
     }
 
@@ -1386,20 +1389,20 @@
         // Set CSS custom property for the target rotation
         card.style.setProperty('--target-rotation', targetRotation);
         
-        // Apply bouncy landing animation
-        card.style.animation = 'card-bounce-land 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+        // Apply bouncy landing animation with gravity-like acceleration
+        card.style.animation = 'card-bounce-land 1.1s ease-in forwards';
         card.className = `card visible stack-${stackIndex}`;
         
         // Set final transform and position after animation
         setTimeout(() => {
           card.style.animation = '';
           card.style.transform = finalTransforms[stackIndex] || 'translate(0, 0) rotate(0deg)';
-        }, 800);
+        }, 1100);
       }, delay);
     }
     
     // Clean up and ensure final state after animation
-    const totalAnimationTime = 200 + cards.length * 150 + 800; // All cards now fall with bounce
+    const totalAnimationTime = 200 + cards.length * 150 + 1100; // All cards now fall with realistic gravity
     setTimeout(() => {
       setFinalStackState(cards);
     }, totalAnimationTime);
