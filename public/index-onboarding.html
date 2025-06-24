@@ -132,12 +132,12 @@
 <div class="debug-toggle" id="debug-toggle">🎮 Debug</div>
 <div class="debug-menu" id="debug-menu" style="display:none">
   <h4>Onboarding Animations</h4>
-  <div class="debug-option active" data-animation="cascade">1. Cascade Drop</div>
-  <div class="debug-option" data-animation="fan">2. Fan Out & In</div>
-  <div class="debug-option" data-animation="swipe-preview">3. Swipe Preview</div>
-  <div class="debug-option" data-animation="bounce-stack">4. Bounce Stack</div>
-  <div class="debug-option" data-animation="shuffle">5. Shuffle & Stack</div>
-  <div class="debug-option" data-animation="pile-pour">6. Pile Pour</div>
+  <div class="debug-option active" data-animation="pile-pour">1. Pile Pour</div>
+  <div class="debug-option" data-animation="cascade">2. Cascade Drop</div>
+  <div class="debug-option" data-animation="fan">3. Fan Out & In</div>
+  <div class="debug-option" data-animation="swipe-preview">4. Swipe Preview</div>
+  <div class="debug-option" data-animation="bounce-stack">5. Bounce Stack</div>
+  <div class="debug-option" data-animation="shuffle">6. Shuffle & Stack</div>
   <div style="margin-top:16px;padding-top:12px;border-top:1px solid #444">
     <div class="debug-option" id="replay-onboarding">🔄 Replay Animation</div>
   </div>
@@ -1056,7 +1056,7 @@
   function nextIndex(idx){return (idx + 1) % companies.length;}
 
   // Onboarding Animation System
-  let selectedAnimation = 'cascade';
+  let selectedAnimation = 'pile-pour';
   let hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding') === 'true';
 
   // Debug Menu Functionality
@@ -1320,19 +1320,19 @@
   function animatePilePour(cards) {
     if (cards.length === 0) return;
     
+    const finalTransforms = {
+      0: 'translate(0, 0) rotate(0deg)',
+      1: 'translate(-6px, -15px) rotate(-2deg)', 
+      2: 'translate(6px, -30px) rotate(2deg)',
+      3: 'translate(-3px, -45px) rotate(-1deg)'
+    };
+    
     // Step 1: Show bottom card first with alpha fade-in
     const bottomCardIndex = cards.length - 1;
     const bottomCard = cards[bottomCardIndex];
     
     if (bottomCard) {
       // Position bottom card in its final stack position immediately
-      const finalTransforms = {
-        0: 'translate(0, 0) rotate(0deg)',
-        1: 'translate(-6px, -15px) rotate(-2deg)', 
-        2: 'translate(6px, -30px) rotate(2deg)',
-        3: 'translate(-3px, -45px) rotate(-1deg)'
-      };
-      
       bottomCard.style.transform = finalTransforms[bottomCardIndex] || 'translate(-3px, -45px) rotate(-1deg)';
       bottomCard.style.opacity = '0';
       bottomCard.className = `card visible stack-${bottomCardIndex}`;
@@ -1344,35 +1344,29 @@
       }, 100);
     }
     
-    // Step 2: Pour remaining cards from above (in reverse order for natural stacking)
-    const remainingCards = cards.slice(0, bottomCardIndex);
-    
-    remainingCards.forEach((card, i) => {
-      if (!card) return;
+    // Step 2: Pour cards from above, from bottom to top (excluding bottom card)
+    // This means: stack-2, stack-1, and finally stack-0 (top card that user will interact with)
+    for (let stackIndex = cards.length - 2; stackIndex >= 0; stackIndex--) {
+      const card = cards[stackIndex];
+      if (!card) continue;
       
       // Start from above, like cascade drop
       card.style.transform = 'translateY(-200vh) rotate(0deg)';
       card.style.opacity = '1';
       
-      // Pour cards with staggered timing (start after bottom card begins fading)
+      // Calculate delay: start after bottom card, then pour from stack-2 down to stack-0
+      const pourOrder = (cards.length - 2) - stackIndex; // 0 for stack-2, 1 for stack-1, 2 for stack-0
+      const delay = 400 + pourOrder * 150; // Start pouring after bottom card appears
+      
       setTimeout(() => {
         card.style.transition = 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
-        
-        // Animate to final stack positions
-        const finalTransforms = {
-          0: 'translate(0, 0) rotate(0deg)',
-          1: 'translate(-6px, -15px) rotate(-2deg)', 
-          2: 'translate(6px, -30px) rotate(2deg)',
-          3: 'translate(-3px, -45px) rotate(-1deg)'
-        };
-        
-        card.style.transform = finalTransforms[i] || 'translate(0, 0) rotate(0deg)';
-        card.className = `card visible stack-${i}`;
-      }, 400 + i * 120); // Start pouring after bottom card starts appearing
-    });
+        card.style.transform = finalTransforms[stackIndex] || 'translate(0, 0) rotate(0deg)';
+        card.className = `card visible stack-${stackIndex}`;
+      }, delay);
+    }
     
     // Clean up and ensure final state after animation
-    const totalAnimationTime = 400 + remainingCards.length * 120 + 700;
+    const totalAnimationTime = 400 + (cards.length - 1) * 150 + 700;
     setTimeout(() => {
       setFinalStackState(cards);
     }, totalAnimationTime);
