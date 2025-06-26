@@ -100,13 +100,7 @@
       .map-controls{top:70px;right:16px}
     }
 
-    /* Debug Menu Styles */
-    .debug-menu{position:fixed;top:20px;left:20px;background:rgba(0,0,0,0.9);color:#fff;padding:16px;border-radius:12px;font-size:14px;z-index:1000;max-width:280px}
-    .debug-menu h4{margin:0 0 12px 0;font-size:16px}
-    .debug-option{margin:8px 0;cursor:pointer;padding:8px 12px;border-radius:6px;transition:background 0.2s}
-    .debug-option:hover{background:rgba(255,255,255,0.1)}
-    .debug-option.active{background:rgba(76,175,80,0.3)}
-    .debug-toggle{position:fixed;top:20px;left:20px;background:#333;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer;z-index:1001;font-size:12px}
+
 
     /* Onboarding Animation Styles */
     .onboarding-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s ease}
@@ -140,20 +134,7 @@
   <div class="map-btn" id="zoom-out">−</div>
 </div>
 
-<!-- Debug Menu -->
-<div class="debug-toggle" id="debug-toggle">🎮 Debug</div>
-<div class="debug-menu" id="debug-menu" style="display:none">
-  <h4>Onboarding Animations</h4>
-  <div class="debug-option active" data-animation="pile-pour">1. Pile Pour</div>
-  <div class="debug-option" data-animation="cascade">2. Cascade Drop</div>
-  <div class="debug-option" data-animation="fan">3. Fan Out & In</div>
-  <div class="debug-option" data-animation="swipe-preview">4. Swipe Preview</div>
-  <div class="debug-option" data-animation="bounce-stack">5. Bounce Stack</div>
-  <div class="debug-option" data-animation="shuffle">6. Shuffle & Stack</div>
-  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #444">
-    <div class="debug-option" id="replay-onboarding">🔄 Replay Animation</div>
-  </div>
-</div>
+
 
 <!-- Onboarding Overlay -->
 <div class="onboarding-overlay" id="onboarding-overlay">
@@ -1105,25 +1086,7 @@
   let selectedAnimation = 'pile-pour';
   let hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding') === 'true';
 
-  // Debug Menu Functionality
-  document.getElementById('debug-toggle').addEventListener('click', function() {
-    const menu = document.getElementById('debug-menu');
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-  });
-
-  document.querySelectorAll('.debug-option[data-animation]').forEach(option => {
-    option.addEventListener('click', function() {
-      document.querySelectorAll('.debug-option[data-animation]').forEach(opt => opt.classList.remove('active'));
-      this.classList.add('active');
-      selectedAnimation = this.dataset.animation;
-    });
-  });
-
-  document.getElementById('replay-onboarding').addEventListener('click', function() {
-    if (cards.length > 0) {
-      playOnboardingAnimation(selectedAnimation);
-    }
-  });
+  // Animation is set to pile-pour by default (selectedAnimation variable above)
 
   // 5 Different Onboarding Animations
   function playOnboardingAnimation(animationType) {
