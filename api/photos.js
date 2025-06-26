@@ -1,6 +1,20 @@
 // Vercel serverless function for photos API
 export default async function handler(req, res) {
-  // Only allow POST requests
+  // Handle GET requests for testing
+  if (req.method === 'GET') {
+    return res.json({ 
+      message: 'Photos API is working! Use POST method with object_ids array in body to fetch photos.',
+      example: {
+        method: 'POST',
+        url: '/api/photos',
+        body: {
+          object_ids: ['example_id_1', 'example_id_2']
+        }
+      }
+    });
+  }
+  
+  // Only allow POST requests for actual functionality
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

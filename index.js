@@ -9,6 +9,20 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Health check for API endpoint
+app.get('/api/photos', (req, res) => {
+  res.json({ 
+    message: 'Photos API is working! Use POST method with object_ids array in body to fetch photos.',
+    example: {
+      method: 'POST',
+      url: '/api/photos',
+      body: {
+        object_ids: ['example_id_1', 'example_id_2']
+      }
+    }
+  });
+});
+
 // 2GIS Photo API endpoint with batching
 app.post('/api/photos', async (req, res) => {
   try {
