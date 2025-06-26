@@ -508,19 +508,43 @@
         console.log('Fetching photos for object IDs:', objectIds);
         const photoData = await fetchPhotosFromAPI(objectIds);
         
+        console.log('📷 Raw photo API response:', photoData);
+        
         if (photoData) {
           // Update companies with enhanced photos and videos
           companies.forEach((company, index) => {
             if (company.id && !company.id.startsWith('place_')) {
+              console.log(`🔍 Processing media for company: ${company.name} (ID: ${company.id})`);
               const apiMedia = processPhotoAPIResponse(photoData, company.id);
+              
+              console.log(`📊 processPhotoAPIResponse returned ${apiMedia.length} items for ${company.name}:`, apiMedia);
+              
               if (apiMedia.length > 0) {
-                console.log(`Found ${apiMedia.length} media items for ${company.name}:`, apiMedia);
+                console.log(`✅ Setting media array for ${company.name}:`, apiMedia);
                 company.media = apiMedia; // Store full media objects
                 company.photos = apiMedia.map(item => item.type === 'video' ? item.cover : item.url); // Fallback for photo-only logic
                 // Also update the marker image to use the first media item
                 company.markerPhoto = apiMedia[0].type === 'video' ? apiMedia[0].cover : apiMedia[0].url;
                 company.photoDebugInfo = apiMedia[0]; // Store debug info for first media item
+                
+                // Log final company state
+                console.log(`🎯 Final company state for ${company.name}:`, {
+                  hasMedia: !!company.media,
+                  mediaLength: company.media ? company.media.length : 0,
+                  mediaTypes: company.media ? company.media.map(m => m.type) : [],
+                  photosLength: company.photos.length
+                });
+              } else {
+                console.warn(`⚠️ No media found for ${company.name} (ID: ${company.id})`);
+                // Check if the company exists in photoData
+                if (photoData && photoData.items && photoData.items[company.id]) {
+                  console.log(`🔍 Raw photo data exists for ${company.id}:`, photoData.items[company.id]);
+                } else {
+                  console.log(`❌ No raw photo data for ${company.id} in response`);
+                }
               }
+            } else {
+              console.log(`⏭️ Skipping company ${company.name} (invalid ID: ${company.id})`);
             }
           });
         }
@@ -694,6 +718,15 @@
   const BACK_START = -150; // starting Y offset (px) for appearing previous card
   
   function createCard(company, index) {
+    console.log(`🃏 Creating card for ${company.name} (index: ${index})`);
+    console.log(`📱 Company media data:`, {
+      hasMedia: !!company.media,
+      mediaLength: company.media ? company.media.length : 0,
+      mediaTypes: company.media ? company.media.map(m => m.type) : [],
+      photosLength: company.photos ? company.photos.length : 0,
+      photos: company.photos
+    });
+    
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.index = index;
@@ -701,6 +734,9 @@
     
     // Use media array if available, fallback to photos
     const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+    
+    console.log(`🎬 Final media items for card:`, mediaItems);
+    console.log(`🎥 Video count in card:`, mediaItems.filter(item => item.type === 'video').length);
     
     const mediaHtml = mediaItems.map((mediaItem, mediaIndex) => {
       if (mediaItem.type === 'video') {
