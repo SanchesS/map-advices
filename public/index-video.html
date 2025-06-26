@@ -84,7 +84,7 @@
     
     /* Progress overlay on active dot */
     .story-dot{position:relative;overflow:hidden}
-    .story-dot-progress{position:absolute;top:0;left:0;height:100%;width:0%;background:rgba(255,255,255,0.9);border-radius:2px;transition:width 0.1s linear}
+    .story-dot-progress{position:absolute;top:0;left:0;height:100%;width:0%;background:rgba(255,255,255,0.9);border-radius:2px;transition:width 0.1s linear;z-index:1}
     
     .slide-actions{display:flex;align-items:center;justify-content:space-around;padding:12px 20px 16px;background:#fff}
     .slide-action{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;cursor:pointer;transition:all .2s ease;background:transparent}
@@ -210,10 +210,7 @@
   }
 
   function createTagsFromStopFactors(context, slideIndex = 0) {
-    console.log(`🏷️ createTagsFromStopFactors called with:`, {context, slideIndex});
-    
     if (!context || !context.stop_factors || !context.stop_factors.length) {
-      console.log(`🏷️ No context or stop_factors, returning default tag`);
       return [{icon: '🍴', text: 'Поесть'}];
     }
     
@@ -273,9 +270,7 @@
       });
     }
     
-    const result = tags.length > 0 ? tags : [{icon: '🍴', text: 'Поесть'}];
-    console.log(`🏷️ createTagsFromStopFactors returning:`, result);
-    return result;
+    return tags.length > 0 ? tags : [{icon: '🍴', text: 'Поесть'}];
   }
 
   function formatWorkingHours(schedule) {
@@ -978,20 +973,9 @@
   function updateTagsForSlide(cardIndex, slideIndex) {
     const company = companies[cardIndex];
     const tagsContainer = document.getElementById(`slide-tags-${cardIndex}`);
-    if (!tagsContainer) {
-      console.log(`❌ No tags container found for card ${cardIndex}`);
-      return;
-    }
-    
-    console.log(`🏷️ Updating tags for card ${cardIndex}, slide ${slideIndex}:`, {
-      hasContext: !!company.context,
-      context: company.context,
-      stopFactors: company.context?.stop_factors
-    });
+    if (!tagsContainer) return;
     
     const tags = createTagsFromStopFactors(company.context, slideIndex);
-    console.log(`🏷️ Generated tags for slide ${slideIndex}:`, tags);
-    
     tagsContainer.innerHTML = tags.map(t => 
       `<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`
     ).join('');
@@ -1239,9 +1223,12 @@
     const visibleCount = 4;
     
     // First, hide all existing cards and pause videos
-    cards.forEach(card => {
+    cards.forEach((card, cardIndex) => {
       if (card && card.parentNode) {
         pauseCurrentVideo(card);
+        clearAutoSlide(cardIndex); // Clear auto-slide progress for all cards
+        // Reset photo index for each card to start fresh
+        photoIndexes.set(cardIndex, 0);
         card.style.display = 'none';
       }
     });
@@ -1259,6 +1246,20 @@
           cardStack.appendChild(card);
         }
         card.style.display = 'block';
+        
+        // Reset photo index and progress for existing cards
+        photoIndexes.set(currentIndex + i, 0);
+        const dots = card.querySelectorAll('.story-dot');
+        dots.forEach((dot, dotIndex) => {
+          dot.classList.toggle('active', dotIndex === 0);
+          const dotProgress = dot.querySelector('.story-dot-progress');
+          if (dotProgress) {
+            dotProgress.style.width = '0%';
+          }
+        });
+        
+        // Update tags for first slide
+        updateTagsForSlide(currentIndex + i, 0);
       }
       card.className = `card visible stack-${i}`;
     }
@@ -1363,7 +1364,7 @@
     dragPrevCard = null; // reset temp card reference
     topCard.classList.add('dragging');
     
-    console.log('🔄 Touch start detected', {startX, startY, target: e.target.className});
+
   }
   
   function handleMove(e) {
@@ -1385,12 +1386,6 @@
     // Determine if this is a horizontal or vertical swipe (more aggressive detection)
     if (!isHorizontalSwipe && Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY) * 0.75) {
       isHorizontalSwipe = true;
-      console.log('🔄 Horizontal swipe detected for media navigation', {deltaX, deltaY});
-    }
-    
-    // Debug logging for movement
-    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-      console.log('🔄 Touch move', {deltaX, deltaY, isHorizontalSwipe});
     }
     
     if (isHorizontalSwipe) {
@@ -1402,16 +1397,7 @@
         // Clear auto-slide while user is swiping
         clearAutoSlide(currentIndex);
         
-        // Visual feedback for horizontal swipe
-        const imageContainer = topCard.querySelector('.slide-image-container');
-        if (imageContainer) {
-          const opacity = Math.max(0.3, 1 - Math.abs(deltaX) / 200);
-          imageContainer.style.opacity = opacity;
-          
-          // Add slight tilt based on swipe direction
-          const tilt = deltaX * 0.1;
-          imageContainer.style.transform = `rotate(${tilt}deg)`;
-        }
+        // No visual feedback during swipe - just clean navigation
       }
     } else {
       // Handle vertical swipe for card navigation (existing logic)
@@ -1473,16 +1459,10 @@
       
       if (mediaItems.length > 1 && Math.abs(deltaX) > horizontalThreshold) {
         const direction = deltaX > 0 ? 'prev' : 'next';
-        console.log(`🔄 Completing horizontal swipe: ${direction}`);
         navigatePhoto(currentIndex, direction);
       }
       
-      // Reset visual feedback
-      const imageContainer = topCard.querySelector('.slide-image-container');
-      if (imageContainer) {
-        imageContainer.style.opacity = '';
-        imageContainer.style.transform = '';
-      }
+      // No visual feedback to reset since we removed it
       
       isHorizontalSwipe = false;
     } else {
