@@ -82,6 +82,10 @@
     .friend-avatar:first-child{margin-left:0}
     .friends-text{color:#fff;font-size:13px;font-weight:500;margin-left:8px;margin-right:4px}
     
+    /* Progress overlay on active dot */
+    .story-dot{position:relative;overflow:hidden}
+    .story-dot-progress{position:absolute;top:0;left:0;height:100%;width:0%;background:rgba(255,255,255,0.9);border-radius:2px;transition:width 0.1s linear}
+    
     .slide-actions{display:flex;align-items:center;justify-content:space-around;padding:12px 20px 16px;background:#fff}
     .slide-action{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;cursor:pointer;transition:all .2s ease;background:transparent}
     .slide-action:hover{background:#f5f5f5}
@@ -205,8 +209,11 @@
     return arr[Math.floor(Math.random() * arr.length)]; 
   }
 
-  function createTagsFromStopFactors(context) {
+  function createTagsFromStopFactors(context, slideIndex = 0) {
+    console.log(`🏷️ createTagsFromStopFactors called with:`, {context, slideIndex});
+    
     if (!context || !context.stop_factors || !context.stop_factors.length) {
+      console.log(`🏷️ No context or stop_factors, returning default tag`);
       return [{icon: '🍴', text: 'Поесть'}];
     }
     
@@ -229,8 +236,26 @@
     
     const tags = [];
     
-    // Take first two stop factors
-    for (const factor of context.stop_factors.slice(0, 2)) {
+    // Display different attributes for different slides
+    let startIndex, endIndex;
+    if (slideIndex === 0) {
+      startIndex = 0;
+      endIndex = 2; // First two attributes for first slide
+    } else if (slideIndex === 1) {
+      startIndex = 2;
+      endIndex = 4; // Third and fourth attributes for second slide
+    } else if (slideIndex === 2) {
+      startIndex = 4;
+      endIndex = 6; // Fifth and sixth attributes for third slide
+    } else {
+      // For additional slides, cycle through remaining attributes
+      startIndex = (slideIndex * 2) % context.stop_factors.length;
+      endIndex = Math.min(startIndex + 2, context.stop_factors.length);
+    }
+    
+    const selectedFactors = context.stop_factors.slice(startIndex, endIndex);
+    
+    for (const factor of selectedFactors) {
       const icon = iconMap[factor.tag] || '🏷️';
       tags.push({
         icon: icon,
@@ -238,7 +263,19 @@
       });
     }
     
-    return tags.length > 0 ? tags : [{icon: '🍴', text: 'Поесть'}];
+    // Fallback if no tags available for this slide index
+    if (tags.length === 0 && context.stop_factors.length > 0) {
+      const factor = context.stop_factors[slideIndex % context.stop_factors.length];
+      const icon = iconMap[factor.tag] || '🏷️';
+      tags.push({
+        icon: icon,
+        text: factor.name
+      });
+    }
+    
+    const result = tags.length > 0 ? tags : [{icon: '🍴', text: 'Поесть'}];
+    console.log(`🏷️ createTagsFromStopFactors returning:`, result);
+    return result;
   }
 
   function formatWorkingHours(schedule) {
@@ -496,6 +533,7 @@
         tags: createTagsFromStopFactors(item.context),
         rating: rating,
         workingHours: formatWorkingHours(item.schedule),
+        context: item.context, // Store context for dynamic tag generation
         originalData: item
       };
     });
@@ -800,7 +838,9 @@
     const dotsHtml = mediaItems.length > 1 ? 
       `<div class="stories-dots">
         ${mediaItems.map((_, i) => 
-          `<div class="story-dot ${i === 0 ? 'active' : ''}"></div>`
+          `<div class="story-dot ${i === 0 ? 'active' : ''}">
+            <div class="story-dot-progress"></div>
+          </div>`
         ).join('')}
       </div>` : '';
     
@@ -828,12 +868,13 @@
         ${dotsHtml}
         ${photoNavHtml}
         <div class="slide-img-overlay">
-          <div class="slide-tags">${company.tags.map(t=>`<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`).join('')}</div>
+          <div class="slide-tags" id="slide-tags-${index}"></div>
           <div class="slide-friends">
             ${company.friends.slice(0,2).map(f=>`<img class='friend-avatar' src='${f}' alt=''/>`).join('')}
             <span class="friends-text">Были друзья</span>
           </div>
         </div>
+
       </div>
       <div class="slide-actions">
         <div class="slide-action" data-action="walk">
@@ -871,10 +912,24 @@
       });
     });
     
+    // Initialize tags for the first slide
+    updateTagsForSlide(index, 0);
+    
+    // Start auto-slide if there are multiple media items
+    if (mediaItems.length > 1) {
+      setTimeout(() => {
+        startAutoSlide(index);
+      }, 500); // Small delay to ensure card is ready
+    }
+    
     return card;
   }
   
-  function navigatePhoto(cardIndex, direction) {
+  // Auto-slide variables
+  let autoSlideIntervals = new Map(); // Track intervals for each card
+  let autoSlideProgressIntervals = new Map(); // Track progress bar intervals
+  
+  function navigatePhoto(cardIndex, direction, updateTags = true) {
     const company = companies[cardIndex];
     const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
     if (mediaItems.length <= 1) return;
@@ -901,9 +956,99 @@
     
     imagesContainer.style.transform = `translateX(-${currentPhotoIndex * (100 / totalPhotos)}%)`;
     
+    // Reset all dot progress and update active states
     dots.forEach((dot, i) => {
-      dot.classList.toggle('active', i === currentPhotoIndex);
+      const isActive = i === currentPhotoIndex;
+      dot.classList.toggle('active', isActive);
+      const dotProgress = dot.querySelector('.story-dot-progress');
+      if (dotProgress) {
+        dotProgress.style.width = '0%';
+      }
     });
+    
+    // Update tags for the current slide
+    if (updateTags) {
+      updateTagsForSlide(cardIndex, currentPhotoIndex);
+    }
+    
+    // Restart auto-slide timer for this card
+    restartAutoSlide(cardIndex);
+  }
+  
+  function updateTagsForSlide(cardIndex, slideIndex) {
+    const company = companies[cardIndex];
+    const tagsContainer = document.getElementById(`slide-tags-${cardIndex}`);
+    if (!tagsContainer) {
+      console.log(`❌ No tags container found for card ${cardIndex}`);
+      return;
+    }
+    
+    console.log(`🏷️ Updating tags for card ${cardIndex}, slide ${slideIndex}:`, {
+      hasContext: !!company.context,
+      context: company.context,
+      stopFactors: company.context?.stop_factors
+    });
+    
+    const tags = createTagsFromStopFactors(company.context, slideIndex);
+    console.log(`🏷️ Generated tags for slide ${slideIndex}:`, tags);
+    
+    tagsContainer.innerHTML = tags.map(t => 
+      `<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`
+    ).join('');
+  }
+  
+  function startAutoSlide(cardIndex) {
+    const card = cards[cardIndex];
+    if (!card) return;
+    
+    const company = companies[cardIndex];
+    const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+    
+    if (mediaItems.length <= 1) return;
+    
+    // Clear existing intervals
+    clearAutoSlide(cardIndex);
+    
+    const activeDot = card.querySelector('.story-dot.active .story-dot-progress');
+    if (!activeDot) return;
+    
+    // Progress bar animation (3 seconds)
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += 2; // 100% / 50 steps = 2% per step (50 steps * 60ms = 3 seconds)
+      activeDot.style.width = progress + '%';
+      
+      if (progress >= 100) {
+        clearInterval(progressInterval);
+        // Auto-navigate to next slide
+        navigatePhoto(cardIndex, 'next');
+      }
+    }, 60); // 60ms intervals for smooth animation
+    
+    autoSlideProgressIntervals.set(cardIndex, progressInterval);
+  }
+  
+  function clearAutoSlide(cardIndex) {
+    // Clear auto-slide interval
+    if (autoSlideIntervals.has(cardIndex)) {
+      clearInterval(autoSlideIntervals.get(cardIndex));
+      autoSlideIntervals.delete(cardIndex);
+    }
+    
+    // Clear progress bar interval
+    if (autoSlideProgressIntervals.has(cardIndex)) {
+      clearInterval(autoSlideProgressIntervals.get(cardIndex));
+      autoSlideProgressIntervals.delete(cardIndex);
+    }
+  }
+  
+  function restartAutoSlide(cardIndex) {
+    clearAutoSlide(cardIndex);
+    
+    // Start auto-slide after a short delay
+    setTimeout(() => {
+      startAutoSlide(cardIndex);
+    }, 100);
   }
   
   function pauseCurrentVideo(card) {
@@ -952,6 +1097,9 @@
     try {
       // Pause any other playing videos first
       pauseCurrentVideo(card);
+      
+      // Clear auto-slide while video is playing
+      clearAutoSlide(cardIndex);
       
       // Add loading state to hide play button immediately
       mediaItemElement.classList.add('video-loading');
@@ -1133,6 +1281,18 @@
       autoplayFirstVideo(currentIndex);
       // Prefetch next video for smooth transition
       prefetchNextVideo(currentIndex);
+      
+      // Start auto-slide for the new top card if it has multiple media items
+      const topCard = cards[currentIndex];
+      if (topCard) {
+        const company = companies[currentIndex];
+        const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+        if (mediaItems.length > 1) {
+          setTimeout(() => {
+            startAutoSlide(currentIndex);
+          }, 500);
+        }
+      }
     }
     
     // Only fly to marker if not skipping animation
@@ -1178,14 +1338,14 @@
   let isDragging = false;
   let isHorizontalSwipe = false;
   let dragThreshold = 80;
-  let horizontalThreshold = 50;
+  let horizontalThreshold = 30;
   
   function handleStart(e) {
     const topCard = cards[currentIndex];
     if (!topCard || topCard !== e.target.closest('.card')) return;
     
-    // Don't start drag if clicking on photo nav or action buttons
-    if (e.target.closest('.photo-nav') || e.target.closest('.slide-action')) return;
+    // Don't start drag if clicking on action buttons, but allow in image area even with overlays
+    if (e.target.closest('.slide-action')) return;
     
     isDragging = true;
     isHorizontalSwipe = false;
@@ -1202,6 +1362,8 @@
     currentX = startX;
     dragPrevCard = null; // reset temp card reference
     topCard.classList.add('dragging');
+    
+    console.log('🔄 Touch start detected', {startX, startY, target: e.target.className});
   }
   
   function handleMove(e) {
@@ -1220,10 +1382,15 @@
     const deltaX = currentX - startX;
     const topCard = cards[currentIndex];
     
-    // Determine if this is a horizontal or vertical swipe
-    if (!isHorizontalSwipe && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
+    // Determine if this is a horizontal or vertical swipe (more aggressive detection)
+    if (!isHorizontalSwipe && Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY) * 0.75) {
       isHorizontalSwipe = true;
-      console.log('🔄 Horizontal swipe detected for media navigation');
+      console.log('🔄 Horizontal swipe detected for media navigation', {deltaX, deltaY});
+    }
+    
+    // Debug logging for movement
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+      console.log('🔄 Touch move', {deltaX, deltaY, isHorizontalSwipe});
     }
     
     if (isHorizontalSwipe) {
@@ -1232,6 +1399,9 @@
       const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
       
       if (mediaItems.length > 1) {
+        // Clear auto-slide while user is swiping
+        clearAutoSlide(currentIndex);
+        
         // Visual feedback for horizontal swipe
         const imageContainer = topCard.querySelector('.slide-image-container');
         if (imageContainer) {
@@ -1319,18 +1489,21 @@
       // Handle vertical swipe completion for card navigation (existing logic)
       if (deltaY < -dragThreshold && currentIndex < companies.length - 1) {
         // Swipe up - next card
+        clearAutoSlide(currentIndex); // Clear auto-slide for current card
         topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
         topCard.style.opacity = '0';
         currentIndex = nextIndex(currentIndex);
         updateStack();
       } else if (deltaY < -dragThreshold && currentIndex === companies.length -1) {
         // Swipe up from last card to first (loop)
+        clearAutoSlide(currentIndex); // Clear auto-slide for current card
         topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
         topCard.style.opacity = '0';
         currentIndex = 0;
         updateStack();
       } else if (deltaY > dragThreshold && currentIndex === 0) {
         // Swipe down from first card to last (loop)
+        clearAutoSlide(currentIndex); // Clear auto-slide for current card
         const pIdx = companies.length -1;
         let prevCard = dragPrevCard || cards[pIdx] || createCard(companies[pIdx], pIdx);
         cards[pIdx] = prevCard;
@@ -1348,6 +1521,7 @@
         },420);
       } else if (deltaY > dragThreshold && currentIndex > 0) {
         // Commit backward swipe — animate previous card into place
+        clearAutoSlide(currentIndex); // Clear auto-slide for current card
         const pIdx = prevIndex(currentIndex);
         // Ensure previous card element exists
         let prevCard = dragPrevCard || cards[pIdx];
