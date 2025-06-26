@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>City Top-50 Prototype - Video Support</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    
+    html,body{margin:0;padding:0;height:100%;width:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden;background:#f5f5f5}
+    #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
+    .map-controls{position:absolute;top:20px;right:20px;z-index:10;display:flex;flex-direction:column;gap:12px}
+    .map-btn{width:48px;height:48px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer;transition:all .2s ease;user-select:none}
+    .map-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
+    .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    
+    .card-container{position:absolute;left:0;right:0;bottom:0;height:370px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px;transition:transform 500ms cubic-bezier(0.4,0,0.2,1)}
+    .card-container.minimized{transform:translateY(290px)}
+    .card-stack{position:relative;width:100%;max-width:400px;height:330px;pointer-events:auto}
+    
+    .skeleton-loader{position:absolute;width:100%;max-width:400px;height:360px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15);display:flex;flex-direction:column}
+    .skeleton-header{padding:20px 20px 16px;background:#fff}
+    .skeleton-title{font-size:18px;font-weight:600;color:#333;text-align:center;margin:0 0 8px 0}
+    .skeleton-line{height:14px;background:#f0f0f0;border-radius:7px;margin-bottom:8px;position:relative;overflow:hidden}
+    .skeleton-line::after{content:'';position:absolute;top:0;left:-200px;width:200px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.8),transparent);animation:skeleton-loading 1.5s ease-in-out infinite}
+    .skeleton-image{height:200px;background:#f0f0f0;position:relative;overflow:hidden}
+    .skeleton-image::after{content:'';position:absolute;top:0;left:-200px;width:200px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);animation:skeleton-loading 1.5s ease-in-out infinite}
+    .skeleton-actions{padding:20px;display:flex;justify-content:space-around}
+    .skeleton-action{width:44px;height:44px;border-radius:12px;background:#f0f0f0}
+    .loader-dots{display:inline-flex;gap:4px}
+    .loader-dot{width:6px;height:6px;background:#666;border-radius:50%;animation:loader-bounce 1.4s infinite ease-in-out both}
+    .loader-dot:nth-child(1){animation-delay:-0.32s}
+    .loader-dot:nth-child(2){animation-delay:-0.16s}
+    
+    @keyframes skeleton-loading{to{left:100%}}
+    @keyframes loader-bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+    
+    .card{position:absolute;width:100%;height:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12);opacity:0;transform:translateY(100vh);transition:all .4s cubic-bezier(.25,.8,.25,1);cursor:grab}
+    .card.dragging{cursor:grabbing;transition:none}
+    
+    .card.visible{opacity:1}
+    .card.stack-0{transform:translate(0, 0) rotate(0deg);box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:4}
+    .card.stack-1{transform:translate(-6px, -15px) rotate(-2deg);box-shadow:0 4px 20px rgba(0,0,0,.10);z-index:3}
+    .card.stack-2{transform:translate(6px, -30px) rotate(2deg);box-shadow:0 2px 12px rgba(0,0,0,.08);z-index:2}
+    .card.stack-3{transform:translate(-3px, -45px) rotate(-1deg);box-shadow:0 2px 8px rgba(0,0,0,.06);z-index:1}
+    
+    .slide-header{padding:20px 20px 16px;background:#fff}
+    .slide-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .slide-title{font-size:24px;font-weight:700;margin:0;color:#1a1a1a}
+    .slide-rating{display:flex;align-items:center;gap:4px;font-size:16px;font-weight:600;color:#333}
+    .slide-rating svg{width:16px;height:16px;fill:#FFB800}
+    .slide-address{font-size:14px;color:#666;margin:0;line-height:1.4}
+    
+    .slide-image-container{position:relative;width:100%;height:170px;overflow:hidden;cursor:pointer;background:#f0f0f0}
+    .slide-images{display:flex;height:100%;transition:transform .3s ease}
+    .slide-img{width:100%;height:100%;object-fit:cover;object-position:center;flex-shrink:0;background:#f0f0f0}
+    .slide-video{width:100%;height:100%;object-fit:cover;object-position:center;flex-shrink:0;background:#000}
+    .media-item{position:relative;width:100%;height:100%;flex-shrink:0}
+    .video-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s ease;opacity:1}
+    .video-overlay:hover{background:rgba(0,0,0,0.4)}
+    .play-button{width:60px;height:60px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#333;transition:all 0.3s ease}
+    .play-button:hover{background:#fff;transform:scale(1.1)}
+    .video-playing .video-overlay{opacity:0;pointer-events:none}
+    .video-loading .video-overlay{opacity:0;pointer-events:none}
+
+    .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
+    
+    .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
+    .story-dot{width:32px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px;transition:background .3s}
+    .story-dot.active{background:rgba(255,255,255,0.9)}
+    
+    .photo-nav-areas{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;z-index:3}
+    .photo-nav{flex:1;cursor:pointer}
+    
+    .slide-tags{position:absolute;top:36px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .slide-tag{background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;font-weight:500;padding:6px 12px;border-radius:20px;display:flex;align-items:center;gap:6px}
+    .slide-tag-icon{font-size:15px}
+    
+    .slide-friends{position:absolute;bottom:12px;left:12px;display:flex;align-items:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:4px 6px 4px 4px;border-radius:24px}
+    .friend-avatar{width:32px;height:32px;border-radius:50%;border:2px solid #fff;margin-left:-10px}
+    .friend-avatar:first-child{margin-left:0}
+    .friends-text{color:#fff;font-size:13px;font-weight:500;margin-left:8px;margin-right:4px}
+    
+    .slide-actions{display:flex;align-items:center;justify-content:space-around;padding:12px 20px 16px;background:#fff}
+    .slide-action{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;cursor:pointer;transition:all .2s ease;background:transparent}
+    .slide-action:hover{background:#f5f5f5}
+    .slide-action:active{transform:scale(0.92)}
+    .slide-action.selected{color:#4CAF50}
+    .slide-action svg{width:28px;height:28px;fill:currentColor}
+    
+    .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;opacity:0;transform:scale(0);animation:marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards}
+    .marker.passive{opacity:0.85;transform:scale(0.85)}
+    .marker.active{border-color:#4CAF50;box-shadow:0 0 0 6px rgba(76,175,80,0.2),0 4px 16px rgba(0,0,0,.12);transform:scale(1);z-index:10}
+    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover;object-position:center}
+    .marker-badge{position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+    .marker-badge-inner{background:#4CAF50;color:#fff;font-size:14px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+    
+    @keyframes marker-pop{to{opacity:0.85;transform:scale(0.85)}}
+    
+    .error-message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);max-width:300px;text-align:center;z-index:1000}
+    .error-title{color:#e74c3c;font-weight:600;margin-bottom:8px}
+    .error-text{color:#666;font-size:14px}
+    
+    @media (max-width:600px){
+      .card-stack{max-width:calc(100% - 24px)}
+      .skeleton-loader{max-width:calc(100% - 24px)}
+      .card-container{height:390px;padding-bottom:16px}
+      .card-container.minimized{transform:translateY(306px)}
+      .map-controls{top:70px;right:16px}
+    }
+
+
+
+    /* Onboarding Animation Styles */
+    .onboarding-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s ease}
+    .onboarding-overlay.visible{opacity:1;pointer-events:auto}
+    .onboarding-hint{background:#fff;padding:20px;border-radius:16px;text-align:center;max-width:300px;margin:20px}
+    .onboarding-hint h3{margin:0 0 12px 0;color:#333}
+    .onboarding-hint p{margin:0;color:#666;line-height:1.4}
+    .swipe-hint{font-size:24px;margin:16px 0;animation:swipe-demo 2s infinite ease-in-out}
+    @keyframes swipe-demo{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    
+    /* Card bounce landing animation with realistic gravity */
+    @keyframes card-bounce-land{
+      /* Gravity fall - starts slow, accelerates (most of the animation time) */
+      0%{transform:translateY(-200vh) rotate(0deg) scale(1);animation-timing-function:cubic-bezier(0.55, 0.055, 0.675, 0.19)}
+      70%{transform:translateY(15px) rotate(var(--target-rotation)) scale(1.04);animation-timing-function:cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+      /* Quick bounces with diminishing returns */
+      82%{transform:translateY(-6px) rotate(var(--target-rotation)) scale(0.98);animation-timing-function:cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+      91%{transform:translateY(2px) rotate(var(--target-rotation)) scale(1.01);animation-timing-function:cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+      96%{transform:translateY(-0.5px) rotate(var(--target-rotation)) scale(0.999);animation-timing-function:ease-out}
+      100%{transform:translateY(0) rotate(var(--target-rotation)) scale(1)}
+    }
+
+
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="map-controls">
+  <div class="map-btn" id="zoom-in">+</div>
+  <div class="map-btn" id="zoom-out">−</div>
+</div>
+
+
+
+<!-- Onboarding Overlay -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+  <div class="onboarding-hint">
+    <h3>Swipe to explore places with videos!</h3>
+    <div class="swipe-hint">👆</div>
+    <p>Swipe up to see the next place, tap videos to play them</p>
+  </div>
+</div>
+
+
+<div class="card-container">
+  <div class="skeleton-loader" id="skeleton-loader">
+    <div class="skeleton-header">
+      <h3 class="skeleton-title">Загружаем лучшие места для еды<span class="loader-dots"><span class="loader-dot"></span><span class="loader-dot"></span><span class="loader-dot"></span></span></h3>
+      <div class="skeleton-line" style="width:70%"></div>
+    </div>
+    <div class="skeleton-image"></div>
+    <div class="skeleton-actions">
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+    </div>
+  </div>
+  <div class="card-stack" id="card-stack" style="display:none"></div>
+</div>
+
+<script src="https://mapgl.2gis.com/api/js"></script>
+<script>
+  // 2GIS API Configuration
+  const API_KEY = 'dad2d895-611d-4dc7-8e3d-3827eed58f2c';
+  const API_BASE_URL = 'https://catalog.api.2gis.com/3.0/items';
+  const SEARCH_QUERY = 'Поесть';
+  const MOSCOW_CENTER = [37.630866, 55.752256]; // lon, lat
+
+  // Mock data for elements not available from API
+  const AVATARS = [
+    'https://randomuser.me/api/portraits/men/32.jpg',
+    'https://randomuser.me/api/portraits/women/44.jpg',
+    'https://randomuser.me/api/portraits/men/45.jpg',
+    'https://randomuser.me/api/portraits/women/65.jpg',
+    'https://randomuser.me/api/portraits/men/77.jpg',
+    'https://randomuser.me/api/portraits/women/88.jpg',
+  ];
+
+  // Fallback photos for places without photos
+  const FALLBACK_PHOTOS = [
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80'
+  ];
+
+  function randomFrom(arr) { 
+    return arr[Math.floor(Math.random() * arr.length)]; 
+  }
+
+  function createTagsFromStopFactors(context) {
+    if (!context || !context.stop_factors || !context.stop_factors.length) {
+      return [{icon: '🍴', text: 'Поесть'}];
+    }
+    
+    // Map specific stop factor tags to icons
+    const iconMap = {
+      'food_service_avg_price': '💳',
+      'food_service_assortment_assortment_hamburgers': '🍔',
+      'food_service_assortment_assortment_frenchfries': '🍟',
+      'food_service_assortment_assortment_nuggets': '🍗',
+      'cocktail_bars_types_coffee_take_away': '☕',
+      'cocktail_bars_types_tea_take_away': '🍵',
+      'cocktail_bars_types_milk_shake': '🥤',
+      'covid_homedelivery': '🚚',
+      'food_service_details_food_takeaway': '📦',
+      'food_service_details_food_kids_menu': '🧒',
+      'additionally_services_wifi': '📶',
+      'general_payment_type_card': '💳',
+      'accessible_entrance_accessible_entrance': '♿'
+    };
+    
+    const tags = [];
+    
+    // Take first two stop factors
+    for (const factor of context.stop_factors.slice(0, 2)) {
+      const icon = iconMap[factor.tag] || '🏷️';
+      tags.push({
+        icon: icon,
+        text: factor.name
+      });
+    }
+    
+    return tags.length > 0 ? tags : [{icon: '🍴', text: 'Поесть'}];
+  }
+
+  function formatWorkingHours(schedule) {
+    if (!schedule) return 'Часы работы уточняйте';
+    
+    const today = new Date().getDay();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayNamesRu = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    const currentDayName = dayNames[today];
+    
+    try {
+      // Check if today's schedule exists
+      if (schedule[currentDayName] && schedule[currentDayName].working_hours && schedule[currentDayName].working_hours.length > 0) {
+        const todayHours = schedule[currentDayName].working_hours[0];
+        if (todayHours.from && todayHours.to) {
+          return `Сегодня до ${todayHours.to}`;
+        }
+      }
+      
+      // Fallback: try to find any working day
+      for (const dayName of dayNames) {
+        if (schedule[dayName] && schedule[dayName].working_hours && schedule[dayName].working_hours.length > 0) {
+          const hours = schedule[dayName].working_hours[0];
+          if (hours.from && hours.to) {
+            const dayIndex = dayNames.indexOf(dayName);
+            return `${dayNamesRu[dayIndex]} ${hours.from}-${hours.to}`;
+          }
+        }
+      }
+    } catch (e) {
+      console.log('Error parsing schedule:', e);
+    }
+    
+    return 'Часы работы уточняйте';
+  }
+
+  function formatAddress(address) {
+    if (!address) return 'Адрес не указан';
+    
+    if (typeof address === 'string') return address;
+    
+    if (address.formatted_address) return address.formatted_address;
+    
+    let parts = [];
+    if (address.street_name) parts.push(address.street_name);
+    if (address.house_number) parts.push(address.house_number);
+    
+    return parts.length > 0 ? parts.join(', ') : 'Адрес не указан';
+  }
+
+  function getPhotosFromItem(item) {
+    // Always use fallback photos initially - real photos will be fetched from Photo API
+    const randomPhoto = randomFrom(FALLBACK_PHOTOS);
+    return [randomPhoto];
+  }
+
+  // Enhanced photo fetcher using 2GIS Photo API
+  async function fetchPhotosFromAPI(objectIds) {
+    try {
+      const response = await fetch('/api/photos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ object_ids: objectIds })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching photos from API:', error);
+      return null;
+    }
+  }
+
+  // Global debug settings
+  let debugSettings = {
+    photoSizePriority: ['656x340', '328x170', '232x232', '176x176'],
+    objectFit: 'cover',
+    containerHeight: 170
+  };
+
+  // Process photo API response to extract best quality photos
+  function processPhotoAPIResponse(photoData, objectId) {
+    if (!photoData || !photoData.items || !photoData.items[objectId]) {
+      console.log(`No photo data found for object ${objectId}`);
+      return [];
+    }
+    
+    const photos = photoData.items[objectId];
+    const processedPhotos = [];
+    const processedVideos = [];
+    
+    console.log(`Processing ${photos.length} media items for object ${objectId}:`, photos);
+    
+    for (const photo of photos.slice(0, 5)) { // Take up to 5 photos/videos
+      console.log(`Processing media item:`, photo);
+      
+      if (photo.media_type === 'photo' && photo.photo && photo.photo.preview_urls) {
+        // Use debug settings for photo size priority
+        let photoUrl = null;
+        for (const size of debugSettings.photoSizePriority) {
+          if (photo.photo.preview_urls[size]) {
+            photoUrl = photo.photo.preview_urls[size];
+            break;
+          }
+        }
+        
+        if (photoUrl) {
+          const photoItem = {
+            type: 'photo',
+            url: photoUrl,
+            availableSizes: Object.keys(photo.photo.preview_urls),
+            selectedSize: debugSettings.photoSizePriority.find(size => photo.photo.preview_urls[size])
+          };
+          processedPhotos.push(photoItem);
+          console.log(`✅ Added photo:`, photoItem);
+        }
+      } else if (photo.media_type === 'video' && photo.video) {
+        console.log(`🎥 Processing video:`, photo.video);
+        // Handle video media
+        let videoUrl = null;
+        let coverUrl = null;
+        let streamType = null;
+        
+        // Get video stream URL (prefer HLS)
+        if (photo.video.preview_urls && photo.video.preview_urls.length > 0) {
+          console.log(`Available video streams:`, photo.video.preview_urls);
+          const hlsStream = photo.video.preview_urls.find(stream => stream.type === 'hls');
+          const dashStream = photo.video.preview_urls.find(stream => stream.type === 'dash');
+          
+          if (hlsStream) {
+            videoUrl = hlsStream.url;
+            streamType = 'hls';
+            console.log(`✅ Using HLS stream:`, videoUrl);
+          } else if (dashStream) {
+            videoUrl = dashStream.url;
+            streamType = 'dash';
+            console.log(`✅ Using DASH stream:`, videoUrl);
+          } else {
+            console.warn(`❌ No HLS or DASH stream found for video`);
+          }
+        } else {
+          console.warn(`❌ No preview_urls found for video`);
+        }
+        
+        // Get video cover/thumbnail
+        if (photo.video.cover_urls) {
+          console.log(`Available cover sizes:`, Object.keys(photo.video.cover_urls));
+          for (const size of debugSettings.photoSizePriority) {
+            if (photo.video.cover_urls[size]) {
+              coverUrl = photo.video.cover_urls[size];
+              console.log(`✅ Using cover size ${size}:`, coverUrl);
+              break;
+            }
+          }
+          // Fallback to url field if specific size not found
+          if (!coverUrl && photo.video.cover_urls.url) {
+            coverUrl = photo.video.cover_urls.url;
+            console.log(`✅ Using fallback cover:`, coverUrl);
+          }
+        } else {
+          console.warn(`❌ No cover_urls found for video`);
+        }
+        
+        if (videoUrl && coverUrl) {
+          const videoItem = {
+            type: 'video',
+            url: videoUrl,
+            cover: coverUrl,
+            availableSizes: photo.video.cover_urls ? Object.keys(photo.video.cover_urls) : [],
+            streamType: streamType,
+            originalData: photo.video
+          };
+          processedVideos.push(videoItem);
+          console.log(`🎥✅ Added video:`, videoItem);
+        } else {
+          console.warn(`❌ Skipping video - missing URL or cover:`, {videoUrl, coverUrl});
+        }
+      } else {
+        console.log(`⚠️ Unknown or incomplete media type:`, photo);
+      }
+    }
+    
+    // VIDEOS FIRST: Prioritize videos at the beginning of the array
+    const finalMediaArray = [...processedVideos, ...processedPhotos];
+    console.log(`📊 Final media array for ${objectId} (${finalMediaArray.length} items):`, finalMediaArray);
+    
+    return finalMediaArray;
+  }
+
+  // API fetch function
+  async function fetchPlacesData() {
+    try {
+      const url = new URL(API_BASE_URL);
+      url.searchParams.append('q', SEARCH_QUERY);
+      url.searchParams.append('location', `${MOSCOW_CENTER[0]},${MOSCOW_CENTER[1]}`);
+      url.searchParams.append('page_size', '50');
+      url.searchParams.append('key', API_KEY);
+      url.searchParams.append('fields', 'items.point,items.address_name,items.name_ex,items.rubrics,items.contact_groups,items.schedule,items.reviews,items.photos,items.cover,items.external_content,items.context');
+
+      console.log('Fetching from:', url.toString());
+      
+      const response = await fetch(url.toString());
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      if (data.result && data.result.items && data.result.items.length > 0) {
+        return data.result.items;
+      } else {
+        throw new Error('No items found in API response');
+      }
+    } catch (error) {
+      console.error('Error fetching places data:', error);
+      throw error;
+    }
+  }
+
+  // Transform API data to our format
+  async function transformApiData(items) {
+    // First pass: create basic data structure
+    companies = items.map((item, index) => {
+      const coords = item.point ? [item.point.lon, item.point.lat] : MOSCOW_CENTER;
+      
+      let rating = '4.0';
+      // Check for different rating field structures in 2GIS API
+      if (item.reviews && typeof item.reviews.rating === 'number') {
+        rating = item.reviews.rating.toFixed(1);
+      } else if (item.reviews && item.reviews.general_rating && typeof item.reviews.general_rating === 'number') {
+        rating = item.reviews.general_rating.toFixed(1);
+      } else if (item.reviews && item.reviews.average_rating && typeof item.reviews.average_rating === 'number') {
+        rating = item.reviews.average_rating.toFixed(1);
+      } else if (typeof item.rating === 'number') {
+        rating = item.rating.toFixed(1);
+      }
+      
+      const friends = Array.from({length: Math.floor(Math.random() * 2) + 2}, () => randomFrom(AVATARS));
+      
+      return {
+        id: item.id || `place_${index}`,
+        name: item.name_ex?.primary || item.name || `Место ${index + 1}`,
+        address: formatAddress(item.address_name || item.address),
+        coords: coords,
+        photos: getPhotosFromItem(item), // Fallback photos
+        friends: friends,
+        tags: createTagsFromStopFactors(item.context),
+        rating: rating,
+        workingHours: formatWorkingHours(item.schedule),
+        originalData: item
+      };
+    });
+
+    // Second pass: enhance with photos from 2GIS Photo API
+    try {
+      const objectIds = companies.map(company => company.id).filter(id => id && !id.startsWith('place_'));
+      
+      if (objectIds.length > 0) {
+        console.log('🔍 Fetching photos for object IDs:', objectIds);
+        console.log('🏢 Companies before photo processing:', companies.map(c => ({id: c.id, name: c.name})));
+        
+        const photoData = await fetchPhotosFromAPI(objectIds);
+        
+        console.log('📷 Raw photo API response:', photoData);
+        
+        // Check if specific company data exists
+        const testCompanyId = '70000001062464140';
+        if (photoData && photoData.items && photoData.items[testCompanyId]) {
+          console.log(`🎯 Found data for test company ${testCompanyId}:`, photoData.items[testCompanyId]);
+          console.log(`🎥 Videos in test company:`, photoData.items[testCompanyId].filter(item => item.media_type === 'video'));
+        } else {
+          console.warn(`❌ No data found for test company ${testCompanyId}`);
+        }
+        
+        if (photoData) {
+          // Test processPhotoAPIResponse for specific company
+          const testCompanyId = '70000001062464140';
+          console.log(`🧪 Testing processPhotoAPIResponse for ${testCompanyId}`);
+          const testResult = processPhotoAPIResponse(photoData, testCompanyId);
+          console.log(`🧪 Test result:`, testResult);
+          
+          // Update companies with enhanced photos and videos
+          companies.forEach((company, index) => {
+            if (company.id && !company.id.startsWith('place_')) {
+              console.log(`🔍 Processing media for company: ${company.name} (ID: ${company.id})`);
+              const apiMedia = processPhotoAPIResponse(photoData, company.id);
+              
+              console.log(`📊 processPhotoAPIResponse returned ${apiMedia.length} items for ${company.name}:`, apiMedia);
+              
+              if (apiMedia.length > 0) {
+                console.log(`✅ Setting media array for ${company.name}:`, apiMedia);
+                company.media = apiMedia; // Store full media objects
+                company.photos = apiMedia.map(item => item.type === 'video' ? item.cover : item.url); // Fallback for photo-only logic
+                // Also update the marker image to use the first media item
+                company.markerPhoto = apiMedia[0].type === 'video' ? apiMedia[0].cover : apiMedia[0].url;
+                company.photoDebugInfo = apiMedia[0]; // Store debug info for first media item
+                
+                // Log final company state
+                console.log(`🎯 Final company state for ${company.name}:`, {
+                  hasMedia: !!company.media,
+                  mediaLength: company.media ? company.media.length : 0,
+                  mediaTypes: company.media ? company.media.map(m => m.type) : [],
+                  photosLength: company.photos.length
+                });
+              } else {
+                console.warn(`⚠️ No media found for ${company.name} (ID: ${company.id})`);
+                // Check if the company exists in photoData
+                if (photoData && photoData.items && photoData.items[company.id]) {
+                  console.log(`🔍 Raw photo data exists for ${company.id}:`, photoData.items[company.id]);
+                } else {
+                  console.log(`❌ No raw photo data for ${company.id} in response`);
+                }
+              }
+            } else {
+              console.log(`⏭️ Skipping company ${company.name} (invalid ID: ${company.id})`);
+            }
+          });
+        }
+      }
+            } catch (error) {
+          console.error('Error enhancing with photo API:', error);
+          // Continue with fallback photos
+        }
+        
+        // Final check: log companies with media arrays
+        console.log('🔍 Final check - Companies with media arrays:');
+        companies.forEach((company, index) => {
+          if (company.media && company.media.length > 0) {
+            console.log(`✅ ${company.name} has ${company.media.length} media items:`, company.media.map(m => m.type));
+          } else {
+            console.log(`❌ ${company.name} has NO media array (only photos: ${company.photos ? company.photos.length : 0})`);
+          }
+        });
+
+    return companies;
+  }
+
+  // Error display function
+  function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.innerHTML = `
+      <div class="error-title">Ошибка загрузки данных</div>
+      <div class="error-text">${message}</div>
+    `;
+    document.body.appendChild(errorDiv);
+    
+    document.getElementById('skeleton-loader').style.display = 'none';
+  }
+
+  let companies = [];
+  
+  let mapReady = false;
+  let isCardMinimized = false;
+  const cardContainer = document.querySelector('.card-container');
+  
+  // Ensure card starts in full state
+  cardContainer.classList.remove('minimized');
+  
+  const map = new mapgl.Map('map', {
+    key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
+    center: MOSCOW_CENTER,
+    zoom: 12,
+    style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b',
+    zoomControl: false
+  });
+  
+  const markers = [];
+  
+  // Map interaction handlers
+  let isInitializing = true;  // Flag to prevent minimizing during initial setup
+  let isProgrammaticMove = false;  // Flag to track programmatic map movements
+  
+  function minimizeCard() {
+    if (!isCardMinimized && mapReady && !isInitializing && !isProgrammaticMove) {
+      isCardMinimized = true;
+      cardContainer.classList.add('minimized');
+    }
+  }
+  
+  function restoreCard() {
+    if (isCardMinimized) {
+      isCardMinimized = false;
+      cardContainer.classList.remove('minimized');
+    }
+  }
+  
+  // Add map interaction listeners
+  map.on('movestart', minimizeCard);  // movestart is triggered on any map movement including drag
+  map.on('zoomstart', minimizeCard);
+  map.on('pitchstart', minimizeCard);
+  map.on('rotatestart', minimizeCard);
+  
+  // Initialize after map is ready
+  map.on('idle', async () => {
+    if (!mapReady) {
+      mapReady = true;
+      
+      try {
+        // Fetch real data from 2GIS API
+        const apiItems = await fetchPlacesData();
+        companies = await transformApiData(apiItems);
+        
+        console.log('Transformed companies:', companies);
+        
+        if (companies.length === 0) {
+          throw new Error('No places found for the search query');
+        }
+        
+        // Create all markers immediately but hidden
+        companies.forEach((c, idx) => {
+          const el = document.createElement('div');
+          el.className = 'marker passive';
+          el.style.opacity = '0';
+          el.style.transform = 'scale(0)';
+          const markerImageSrc = c.markerPhoto || c.photos[0] || randomFrom(FALLBACK_PHOTOS);
+          el.innerHTML = `<img class="marker-img" src="${markerImageSrc}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
+            <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
+          const mk = new mapgl.HtmlMarker(map, {coordinates: c.coords, html: el});
+          markers[idx] = {marker: mk, el, coords: c.coords};
+        });
+        
+        // Animate markers appearing
+        const shuffledIndices = Array.from({length: companies.length}, (_, i) => i)
+          .sort(() => Math.random() - 0.5);
+        
+        // Always animate the first marker immediately
+        if (markers[0]) {
+          markers[0].el.style.animation = 'marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards';
+        }
+        
+        // Animate remaining markers with random order
+        shuffledIndices.forEach((idx, i) => {
+          if (idx === 0) return;
+          setTimeout(() => {
+            if (markers[idx]) {
+              markers[idx].el.style.animation = 'marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards';
+            }
+          }, (i + 1) * 30);
+        });
+        
+        // Start card animation immediately while markers are appearing
+        setTimeout(() => {
+          // Prepare card stack (but keep skeleton visible)
+          cardStack.style.display = 'block';
+          updateStackForAnimation();
+          
+          // Start falling animation while markers are still popping up
+          playOnboardingAnimation(selectedAnimation);
+        }, 300); // Short delay to let first marker start appearing
+        
+        // Hide skeleton loader after cards start falling
+        setTimeout(() => {
+          document.getElementById('skeleton-loader').style.display = 'none';
+        }, 600);
+        
+        // Setup marker interactions and map positioning after initial animations
+        setTimeout(() => {
+          markers.forEach((m, i) => {
+            if (m) {
+              m.el.addEventListener('click', () => {
+                restoreCard();
+                goToCard(i);
+              });
+            }
+          });
+          
+          if (markers[0]) {
+            markers[0].el.style.opacity = '0.85';
+            markers[0].el.style.transform = 'scale(0.85)';
+            markers[0].el.classList.remove('passive');
+            markers[0].el.classList.add('active');
+          }
+          
+          flyToFirstMarker();
+          
+          setTimeout(() => {
+            isInitializing = false;
+          }, 1000);
+        }, 800);
+        
+      } catch (error) {
+        console.error('Failed to load places data:', error);
+        showError('Не удалось загрузить данные о местах. Проверьте подключение к интернету.');
+      }
+    }
+  });
+  
+  // Card stack implementation
+  let currentIndex = 0;
+  const cardStack = document.getElementById('card-stack');
+      let cards = [];
+  const photoIndexes = new Map(); // Track photo index for each card
+  
+  let dragPrevCard = null; // Temp card shown during backward drag
+  const BACK_START = -150; // starting Y offset (px) for appearing previous card
+  
+  function createCard(company, index) {
+    console.log(`🃏 Creating card for ${company.name} (index: ${index})`);
+    console.log(`📱 Company media data:`, {
+      hasMedia: !!company.media,
+      mediaLength: company.media ? company.media.length : 0,
+      mediaTypes: company.media ? company.media.map(m => m.type) : [],
+      photosLength: company.photos ? company.photos.length : 0,
+      photos: company.photos
+    });
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.index = index;
+    photoIndexes.set(index, 0);
+    
+    // Use media array if available, fallback to photos
+    const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+    
+    console.log(`🎬 Final media items for card:`, mediaItems);
+    console.log(`🎥 Video count in card:`, mediaItems.filter(item => item.type === 'video').length);
+    
+    const mediaHtml = mediaItems.map((mediaItem, mediaIndex) => {
+      if (mediaItem.type === 'video') {
+        return `
+          <div class="media-item" style="width: ${100 / mediaItems.length}%;">
+            <video class="slide-video" 
+                   preload="metadata" 
+                   muted 
+                   playsinline 
+                   loop
+                   poster="${mediaItem.cover}"
+                   style="object-fit: ${debugSettings.objectFit};" 
+                   data-video-url="${mediaItem.url}" 
+                   data-stream-type="${mediaItem.streamType}"
+                   data-media-index="${mediaIndex}">
+              <source src="${mediaItem.url}" type="application/x-mpegURL">
+              Your browser does not support the video tag.
+            </video>
+            <div class="video-overlay" data-media-index="${mediaIndex}">
+              <div class="play-button">▶</div>
+            </div>
+
+          </div>
+        `;
+      } else {
+        return `
+          <div class="media-item" style="width: ${100 / mediaItems.length}%;">
+            <img class="slide-img" src="${mediaItem.url}" alt="" style="object-fit: ${debugSettings.objectFit};" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
+          </div>
+        `;
+      }
+    }).join('');
+    
+    const dotsHtml = mediaItems.length > 1 ? 
+      `<div class="stories-dots">
+        ${mediaItems.map((_, i) => 
+          `<div class="story-dot ${i === 0 ? 'active' : ''}"></div>`
+        ).join('')}
+      </div>` : '';
+    
+    const photoNavHtml = mediaItems.length > 1 ?
+      `<div class="photo-nav-areas">
+        <div class="photo-nav" data-direction="prev"></div>
+        <div class="photo-nav" data-direction="next"></div>
+      </div>` : '';
+    
+    card.innerHTML = `
+      <div class="slide-header">
+        <div class="slide-title-row">
+          <h3 class="slide-title">${company.name}</h3>
+          <div class="slide-rating">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            ${company.rating}
+          </div>
+        </div>
+        <p class="slide-address">${company.workingHours} • ${company.address}</p>
+      </div>
+      <div class="slide-image-container" style="height: ${debugSettings.containerHeight}px;">
+        <div class="slide-images" style="width: ${mediaItems.length * 100}%">
+          ${mediaHtml}
+        </div>
+        ${dotsHtml}
+        ${photoNavHtml}
+        <div class="slide-img-overlay">
+          <div class="slide-tags">${company.tags.map(t=>`<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`).join('')}</div>
+          <div class="slide-friends">
+            ${company.friends.slice(0,2).map(f=>`<img class='friend-avatar' src='${f}' alt=''/>`).join('')}
+            <span class="friends-text">Были друзья</span>
+          </div>
+        </div>
+      </div>
+      <div class="slide-actions">
+        <div class="slide-action" data-action="walk">
+          <svg viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>
+        </div>
+        <div class="slide-action" data-action="bookmark">
+          <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+        </div>
+        <div class="slide-action" data-action="like">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </div>
+        <div class="slide-action" data-action="dislike">
+          <svg viewBox="0 0 24 24"><path d="M15 3H6c-.83 0-1.54.5-1.85 1.26l-3.92 9.83c-.09.22-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>
+        </div>
+      </div>
+    `;
+    
+    // Add photo/video navigation handlers
+    const photoNavs = card.querySelectorAll('.photo-nav');
+    photoNavs.forEach(nav => {
+      nav.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const direction = nav.dataset.direction;
+        navigatePhoto(index, direction);
+      });
+    });
+    
+    // Add video play handlers
+    const videoOverlays = card.querySelectorAll('.video-overlay');
+    videoOverlays.forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mediaIndex = parseInt(overlay.dataset.mediaIndex);
+        playVideo(index, mediaIndex);
+      });
+    });
+    
+    return card;
+  }
+  
+  function navigatePhoto(cardIndex, direction) {
+    const company = companies[cardIndex];
+    const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+    if (mediaItems.length <= 1) return;
+    
+    const card = cards[cardIndex];
+    if (!card) return;
+    
+    let currentPhotoIndex = photoIndexes.get(cardIndex) || 0;
+    const totalPhotos = mediaItems.length;
+    
+    // Pause current video if it's playing
+    pauseCurrentVideo(card);
+    
+    if (direction === 'next') {
+      currentPhotoIndex = (currentPhotoIndex + 1) % totalPhotos;
+    } else {
+      currentPhotoIndex = (currentPhotoIndex - 1 + totalPhotos) % totalPhotos;
+    }
+    
+    photoIndexes.set(cardIndex, currentPhotoIndex);
+    
+    const imagesContainer = card.querySelector('.slide-images');
+    const dots = card.querySelectorAll('.story-dot');
+    
+    imagesContainer.style.transform = `translateX(-${currentPhotoIndex * (100 / totalPhotos)}%)`;
+    
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentPhotoIndex);
+    });
+  }
+  
+  function pauseCurrentVideo(card) {
+    const playingVideos = card.querySelectorAll('video');
+    playingVideos.forEach(video => {
+      video.pause();
+      video.currentTime = 0;
+      
+      // Clean up HLS instance if it exists
+      if (video.hlsInstance) {
+        console.log(`🧹 Cleaning up HLS instance`);
+        video.hlsInstance.destroy();
+        video.hlsInstance = null;
+      }
+    });
+    // Remove playing state from all media items
+    const mediaItems = card.querySelectorAll('.media-item');
+    mediaItems.forEach(item => item.classList.remove('video-playing'));
+  }
+  
+  async function playVideo(cardIndex, mediaIndex, autoplay = false) {
+    const company = companies[cardIndex];
+    const card = cards[cardIndex];
+    if (!card || !company.media) {
+      console.warn(`❌ Cannot play video - missing card or media for card ${cardIndex}`);
+      return;
+    }
+    
+    const mediaItem = company.media[mediaIndex];
+    if (mediaItem.type !== 'video') {
+      console.warn(`❌ Cannot play - media item ${mediaIndex} is not a video:`, mediaItem);
+      return;
+    }
+    
+    const mediaItemElement = card.querySelectorAll('.media-item')[mediaIndex];
+    const video = mediaItemElement.querySelector('video');
+    const overlay = mediaItemElement.querySelector('.video-overlay');
+    
+    if (!video) {
+      console.error(`❌ No video element found for media index ${mediaIndex}`);
+      return;
+    }
+    
+
+    
+    try {
+      // Pause any other playing videos first
+      pauseCurrentVideo(card);
+      
+      // Add loading state to hide play button immediately
+      mediaItemElement.classList.add('video-loading');
+      
+      // Check if HLS.js is needed for HLS streams
+      if (mediaItem.streamType === 'hls' && mediaItem.url.includes('.m3u8')) {
+        if (window.Hls && Hls.isSupported()) {
+          const hls = new Hls({
+            debug: false,
+            enableWorker: false
+          });
+          
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error(`❌ HLS Error:`, event, data);
+            if (data.fatal) {
+              console.error(`❌ Fatal HLS error, trying fallback`);
+              // Try fallback
+              video.src = mediaItem.url;
+              video.play().then(() => {
+                mediaItemElement.classList.remove('video-loading');
+                mediaItemElement.classList.add('video-playing');
+              }).catch(e => {
+                console.error(`❌ Fallback play failed:`, e);
+                mediaItemElement.classList.remove('video-loading');
+              });
+            }
+          });
+          
+          hls.loadSource(mediaItem.url);
+          hls.attachMedia(video);
+          
+          hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+            try {
+              await video.play();
+              mediaItemElement.classList.remove('video-loading');
+              mediaItemElement.classList.add('video-playing');
+            } catch (e) {
+              console.error(`❌ HLS play failed:`, e);
+              mediaItemElement.classList.remove('video-loading');
+            }
+          });
+          
+          // Store HLS instance for cleanup
+          video.hlsInstance = hls;
+          
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = mediaItem.url;
+          await video.play();
+          mediaItemElement.classList.remove('video-loading');
+          mediaItemElement.classList.add('video-playing');
+        } else {
+          video.src = mediaItem.url;
+          await video.play();
+          mediaItemElement.classList.remove('video-loading');
+          mediaItemElement.classList.add('video-playing');
+        }
+      } else {
+        video.src = mediaItem.url;
+        await video.play();
+        mediaItemElement.classList.remove('video-loading');
+        mediaItemElement.classList.add('video-playing');
+      }
+
+      
+      // Set video to loop
+      video.loop = true;
+      
+      // Handle video events
+      video.addEventListener('error', (e) => {
+        console.error(`❌ Video error:`, e, video.error);
+      });
+      
+    } catch (error) {
+      console.error(`❌ Error playing video for card ${cardIndex}:`, error);
+      mediaItemElement.classList.remove('video-loading');
+    }
+  }
+  
+  // Auto-play first video when card becomes visible
+  function autoplayFirstVideo(cardIndex) {
+    const company = companies[cardIndex];
+    if (!company.media || company.media.length === 0) return;
+    
+    // Find first video in media array
+    const firstVideoIndex = company.media.findIndex(item => item.type === 'video');
+    if (firstVideoIndex !== -1) {
+      // Small delay to ensure card is fully rendered
+      setTimeout(() => {
+        playVideo(cardIndex, firstVideoIndex, true);
+      }, 100);
+    }
+  }
+  
+  // Prefetch videos for next company
+  function prefetchNextVideo(currentCardIndex) {
+    const nextCardIndex = (currentCardIndex + 1) % companies.length;
+    const nextCompany = companies[nextCardIndex];
+    
+    if (!nextCompany || !nextCompany.media) return;
+    
+    // Find first video in next company
+    const firstVideoIndex = nextCompany.media.findIndex(item => item.type === 'video');
+    if (firstVideoIndex !== -1) {
+      // Check if card exists, if not create it
+      let nextCard = cards[nextCardIndex];
+      if (!nextCard) {
+        nextCard = createCard(nextCompany, nextCardIndex);
+        cards[nextCardIndex] = nextCard;
+        // Add to DOM but keep hidden
+        nextCard.style.display = 'none';
+        cardStack.appendChild(nextCard);
+      }
+      
+      // Preload the video (but don't play it)
+      const videoElement = nextCard.querySelectorAll('.media-item')[firstVideoIndex]?.querySelector('video');
+      if (videoElement && !videoElement.src) {
+        const mediaItem = nextCompany.media[firstVideoIndex];
+        
+        if (mediaItem.streamType === 'hls' && mediaItem.url.includes('.m3u8')) {
+          if (window.Hls && Hls.isSupported()) {
+            const hls = new Hls({
+              enableWorker: false,
+              startLevel: -1 // Let HLS.js choose the best quality
+            });
+            hls.loadSource(mediaItem.url);
+            hls.attachMedia(videoElement);
+            videoElement.hlsInstance = hls;
+          }
+        } else {
+          videoElement.src = mediaItem.url;
+        }
+      }
+    }
+  }
+  
+  function updateStack(skipAnimation = false) {
+    const visibleCount = 4;
+    
+    // First, hide all existing cards and pause videos
+    cards.forEach(card => {
+      if (card && card.parentNode) {
+        pauseCurrentVideo(card);
+        card.style.display = 'none';
+      }
+    });
+    
+    // Then create/show only the cards we need
+    for (let i = 0; i < visibleCount && currentIndex + i < companies.length; i++) {
+      let card = cards[currentIndex + i];
+      if (!card) {
+        card = createCard(companies[currentIndex + i], currentIndex + i);
+        cards[currentIndex + i] = card;
+        cardStack.appendChild(card);
+      } else {
+        // Re-add card to DOM if it was removed
+        if (!card.parentNode) {
+          cardStack.appendChild(card);
+        }
+        card.style.display = 'block';
+      }
+      card.className = `card visible stack-${i}`;
+    }
+    
+    // Clean up very old cards
+    if (currentIndex > 4) {
+      for (let i = 0; i < currentIndex - 4; i++) {
+        if (cards[i] && cards[i].parentNode) {
+          cards[i].remove();
+          cards[i] = null;
+        }
+      }
+    }
+    
+    // Always highlight marker
+    highlightMarker(currentIndex);
+    
+    // Auto-play first video on the current (top) card
+    if (currentIndex < companies.length) {
+      autoplayFirstVideo(currentIndex);
+      // Prefetch next video for smooth transition
+      prefetchNextVideo(currentIndex);
+    }
+    
+    // Only fly to marker if not skipping animation
+    if (!skipAnimation) {
+      flyToMarkerImproved(currentIndex);
+    }
+  }
+
+  // Special function to create cards for animation (keeps them hidden)
+  function updateStackForAnimation() {
+    const visibleCount = 4;
+    
+    // Create cards but keep them invisible for animation
+    for (let i = 0; i < visibleCount && currentIndex + i < companies.length; i++) {
+      let card = cards[currentIndex + i];
+      if (!card) {
+        card = createCard(companies[currentIndex + i], currentIndex + i);
+        cards[currentIndex + i] = card;
+        cardStack.appendChild(card);
+      } else {
+        // Re-add card to DOM if it was removed
+        if (!card.parentNode) {
+          cardStack.appendChild(card);
+        }
+      }
+      
+      // Make card invisible but present in DOM for animation
+      card.style.display = 'block';
+      card.style.opacity = '0';
+      card.style.transform = '';
+      card.className = 'card'; // Remove visible class to keep hidden
+    }
+    
+    // Highlight marker
+    highlightMarker(currentIndex);
+  }
+  
+  // Touch/drag handling
+  let startY = 0;
+  let currentY = 0;
+  let startX = 0;
+  let currentX = 0;
+  let isDragging = false;
+  let isHorizontalSwipe = false;
+  let dragThreshold = 80;
+  let horizontalThreshold = 50;
+  
+  function handleStart(e) {
+    const topCard = cards[currentIndex];
+    if (!topCard || topCard !== e.target.closest('.card')) return;
+    
+    // Don't start drag if clicking on photo nav or action buttons
+    if (e.target.closest('.photo-nav') || e.target.closest('.slide-action')) return;
+    
+    isDragging = true;
+    isHorizontalSwipe = false;
+    
+    if (e.type.includes('mouse')) {
+      startY = e.clientY;
+      startX = e.clientX;
+    } else {
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+    }
+    
+    currentY = startY;
+    currentX = startX;
+    dragPrevCard = null; // reset temp card reference
+    topCard.classList.add('dragging');
+  }
+  
+  function handleMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    if (e.type.includes('mouse')) {
+      currentY = e.clientY;
+      currentX = e.clientX;
+    } else {
+      currentY = e.touches[0].clientY;
+      currentX = e.touches[0].clientX;
+    }
+    
+    const deltaY = currentY - startY;
+    const deltaX = currentX - startX;
+    const topCard = cards[currentIndex];
+    
+    // Determine if this is a horizontal or vertical swipe
+    if (!isHorizontalSwipe && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
+      isHorizontalSwipe = true;
+      console.log('🔄 Horizontal swipe detected for media navigation');
+    }
+    
+    if (isHorizontalSwipe) {
+      // Handle horizontal swipe for media navigation
+      const company = companies[currentIndex];
+      const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+      
+      if (mediaItems.length > 1) {
+        // Visual feedback for horizontal swipe
+        const imageContainer = topCard.querySelector('.slide-image-container');
+        if (imageContainer) {
+          const opacity = Math.max(0.3, 1 - Math.abs(deltaX) / 200);
+          imageContainer.style.opacity = opacity;
+          
+          // Add slight tilt based on swipe direction
+          const tilt = deltaX * 0.1;
+          imageContainer.style.transform = `rotate(${tilt}deg)`;
+        }
+      }
+    } else {
+      // Handle vertical swipe for card navigation (existing logic)
+      if (deltaY < 0) {
+        // Forward swipe (up) — move current card with finger
+        topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
+        topCard.style.opacity = 1 - Math.abs(deltaY) / 300;
+        // Ensure any temp previous card is removed if user changes direction
+        if (dragPrevCard) {
+          dragPrevCard.remove();
+          dragPrevCard = null;
+        }
+      } else if (currentIndex > 0) {
+        // Backward swipe (down) — reveal previous card interactively
+        // Keep current top card fixed
+        topCard.style.transform = '';
+        topCard.style.opacity = '';
+        
+        const pIdx = prevIndex(currentIndex);
+        if (!dragPrevCard) {
+          // Create card if it does not exist yet
+          dragPrevCard = cards[pIdx] || createCard(companies[pIdx], pIdx);
+          cards[pIdx] = dragPrevCard;
+          dragPrevCard.style.display = 'block';
+          dragPrevCard.style.position = 'absolute';
+          dragPrevCard.style.left = '0';
+          dragPrevCard.style.right = '0';
+          dragPrevCard.style.transition = 'none';
+          dragPrevCard.style.zIndex = '5';
+          dragPrevCard.style.transform = `translateY(${BACK_START}px) rotate(5deg)`;
+          dragPrevCard.style.opacity = '0';
+          dragPrevCard.className = 'card visible';
+          cardStack.appendChild(dragPrevCard);
+        }
+        // Calculate transform, rotation, opacity to mirror forward drag
+        const translateY = Math.min(0, BACK_START + deltaY); // moves from BACK_START to 0
+        const progress = 1 - Math.abs(translateY / BACK_START); // 0 -> 1
+        const rotation = 5 * (1 - progress); // 5deg -> 0deg
+        dragPrevCard.style.transform = `translateY(${translateY}px) rotate(${rotation}deg)`;
+        dragPrevCard.style.opacity = progress;
+      }
+    }
+  }
+  
+  function handleEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    
+    const topCard = cards[currentIndex];
+    topCard.classList.remove('dragging');
+    
+    const deltaY = currentY - startY;
+    const deltaX = currentX - startX;
+    
+    if (isHorizontalSwipe) {
+      // Handle horizontal swipe completion for media navigation
+      const company = companies[currentIndex];
+      const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+      
+      if (mediaItems.length > 1 && Math.abs(deltaX) > horizontalThreshold) {
+        const direction = deltaX > 0 ? 'prev' : 'next';
+        console.log(`🔄 Completing horizontal swipe: ${direction}`);
+        navigatePhoto(currentIndex, direction);
+      }
+      
+      // Reset visual feedback
+      const imageContainer = topCard.querySelector('.slide-image-container');
+      if (imageContainer) {
+        imageContainer.style.opacity = '';
+        imageContainer.style.transform = '';
+      }
+      
+      isHorizontalSwipe = false;
+    } else {
+      // Handle vertical swipe completion for card navigation (existing logic)
+      if (deltaY < -dragThreshold && currentIndex < companies.length - 1) {
+        // Swipe up - next card
+        topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+        topCard.style.opacity = '0';
+        currentIndex = nextIndex(currentIndex);
+        updateStack();
+      } else if (deltaY < -dragThreshold && currentIndex === companies.length -1) {
+        // Swipe up from last card to first (loop)
+        topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+        topCard.style.opacity = '0';
+        currentIndex = 0;
+        updateStack();
+      } else if (deltaY > dragThreshold && currentIndex === 0) {
+        // Swipe down from first card to last (loop)
+        const pIdx = companies.length -1;
+        let prevCard = dragPrevCard || cards[pIdx] || createCard(companies[pIdx], pIdx);
+        cards[pIdx] = prevCard;
+        prevCard.style.display='block';
+        cardStack.appendChild(prevCard);
+        prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+        prevCard.style.transform='';
+        prevCard.style.opacity='1';
+        prevCard.className='card visible stack-0';
+        topCard.className='card visible stack-1';
+        setTimeout(()=>{
+          currentIndex = pIdx;
+          dragPrevCard=null;
+          updateStack();
+        },420);
+      } else if (deltaY > dragThreshold && currentIndex > 0) {
+        // Commit backward swipe — animate previous card into place
+        const pIdx = prevIndex(currentIndex);
+        // Ensure previous card element exists
+        let prevCard = dragPrevCard || cards[pIdx];
+        if (!prevCard) {
+          prevCard = createCard(companies[pIdx], pIdx);
+          cards[pIdx] = prevCard;
+          prevCard.style.display = 'block';
+          cardStack.appendChild(prevCard);
+        }
+        // Animate into position
+        prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+        prevCard.style.transform = '';
+        prevCard.style.opacity = '1';
+        prevCard.className = 'card visible stack-0';
+        
+        // Demote current top card
+        topCard.className = 'card visible stack-1';
+        
+        // After animation finishes, update indices and stack
+        setTimeout(() => {
+          currentIndex = pIdx;
+          dragPrevCard = null;
+          updateStack();
+        }, 420);
+      } else {
+        // Return to position
+        topCard.style.transform = '';
+        topCard.style.opacity = '';
+      }
+    }
+    
+    startY = 0;
+    currentY = 0;
+    startX = 0;
+    currentX = 0;
+  }
+  
+  // Event listeners
+  cardStack.addEventListener('mousedown', handleStart);
+  cardStack.addEventListener('mousemove', handleMove);
+  cardStack.addEventListener('mouseup', handleEnd);
+  cardStack.addEventListener('mouseleave', handleEnd);
+  
+  cardStack.addEventListener('touchstart', handleStart, {passive: false});
+  cardStack.addEventListener('touchmove', handleMove, {passive: false});
+  cardStack.addEventListener('touchend', handleEnd);
+  
+  // Restore card on click when minimized
+  cardContainer.addEventListener('click', function(e) {
+    if (isCardMinimized && !e.target.closest('.slide-action')) {
+      restoreCard();
+    }
+  });
+  
+  // Action buttons
+  cardStack.addEventListener('click', function(e) {
+    const action = e.target.closest('.slide-action');
+    if (action) {
+      e.stopPropagation();
+      if (action.dataset.action === 'like' || action.dataset.action === 'bookmark') {
+        action.classList.toggle('selected');
+      }
+    }
+  });
+  
+  function highlightMarker(idx){
+    if (!markers[idx]) return;
+    markers.forEach((m,i)=>{
+      if(m && i===idx){
+        m.el.classList.remove('passive');
+        m.el.classList.add('active');
+      } else if(m) {
+        m.el.classList.remove('active');
+        m.el.classList.add('passive');
+      }
+    });
+  }
+  
+  function flyToFirstMarker() {
+    if (!companies[0] || !mapReady || !markers[0]) {
+      return;
+    }
+    
+    // Set flag to prevent card minimization during programmatic map movement
+    isProgrammaticMove = true;
+    
+    const coords = companies[0].coords;
+    const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
+    
+    // Calculate offset to center marker in visible area above card
+    const mapContainer = document.getElementById('map');
+    const mapHeight = mapContainer.offsetHeight;
+    const visibleHeight = mapHeight - cardHeight;
+    
+    // We want the marker in the center of the visible area
+    // Offset by half the card height plus a bit more to account for the visible area center
+    const offsetRatio = ((cardHeight / 2) + (visibleHeight / 4)) / mapHeight;
+    
+    // For zoom 15, calculate the latitude offset
+    const targetZoom = 15;
+    const latOffset = offsetRatio * (180 / Math.pow(2, targetZoom)) * 0.7;
+    
+    // Apply offset to latitude (move map center down to push marker up)
+    const offsetCoords = [coords[0], coords[1] - latOffset];
+    
+    // Single animation for both zoom and center
+    map.setCenter(offsetCoords, {
+      duration: 800,
+      easing: 'easeOutBack'
+    });
+    map.setZoom(targetZoom, {
+      duration: 800,
+      easing: 'easeOutBack'
+    });
+    
+    // Reset flag after animation completes
+    setTimeout(() => {
+      isProgrammaticMove = false;
+    }, 850);
+  }
+  
+  function flyToMarkerImproved(idx, bouncy = false) {
+    if (!companies[idx] || !mapReady || !markers[idx]) {
+      return;
+    }
+    
+    // Set flag to prevent card minimization during programmatic map movement
+    isProgrammaticMove = true;
+    
+    const coords = companies[idx].coords;
+    const cardHeight = (window.innerWidth <= 600) ? 420 : 400;
+    
+    // Calculate offset to center marker in visible area above card
+    const mapContainer = document.getElementById('map');
+    const mapHeight = mapContainer.offsetHeight;
+    
+    // Adjust for minimized state - when minimized, only 20% of card is visible
+    const effectiveCardHeight = isCardMinimized ? cardHeight * 0.2 : cardHeight;
+    const visibleHeight = mapHeight - effectiveCardHeight;
+    
+    // We want the marker in the center of the visible area
+    const offsetRatio = ((effectiveCardHeight / 2) + (visibleHeight / 4)) / mapHeight;
+    
+    // Get current zoom level to calculate appropriate lat offset
+    const zoom = map.getZoom();
+    const latOffset = offsetRatio * (180 / Math.pow(2, zoom)) * 0.7;
+    
+    // Apply offset to latitude (move map center down to push marker up)
+    const offsetCoords = [coords[0], coords[1] - latOffset];
+    
+    // Center map with animation
+    map.setCenter(offsetCoords, {
+      duration: bouncy ? 800 : 400,
+      easing: bouncy ? 'easeOutBack' : 'easeInOutCubic'
+    });
+    
+    // Ensure proper zoom level
+    if (zoom < 15) {
+      map.setZoom(15, {
+        duration: bouncy ? 800 : 400,
+        easing: bouncy ? 'easeOutBack' : 'easeInOutCubic'
+      });
+    }
+    
+    // Reset flag after animation completes
+    setTimeout(() => {
+      isProgrammaticMove = false;
+    }, bouncy ? 850 : 450);
+  }
+  
+  function goToCard(index) {
+    if (index >= 0 && index < companies.length && index !== currentIndex) {
+      currentIndex = index;
+      // Clear and rebuild stack
+      cardStack.innerHTML = '';
+      cards.forEach((card, idx) => {
+        if (idx >= currentIndex - 1 && idx < currentIndex + 4) {
+          cards[idx] = null;
+        }
+      });
+      updateStack();
+    }
+  }
+  
+  document.getElementById('zoom-in').onclick = ()=>map.setZoom(map.getZoom()+1, {duration: 200});
+  document.getElementById('zoom-out').onclick = ()=>map.setZoom(map.getZoom()-1, {duration: 200});
+
+  // Helper functions for cyclic indices
+  function prevIndex(idx){return (idx - 1 + companies.length) % companies.length;}
+  function nextIndex(idx){return (idx + 1) % companies.length;}
+
+  // Onboarding Animation System
+  let selectedAnimation = 'pile-pour';
+  let hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding') === 'true';
+
+  // Animation is set to pile-pour by default (selectedAnimation variable above)
+
+  // 5 Different Onboarding Animations
+  function playOnboardingAnimation(animationType) {
+    const visibleCards = cards.slice(currentIndex, currentIndex + 4).filter(card => card);
+    if (visibleCards.length === 0) return;
+
+    // Reset all cards to initial state and hide them
+    visibleCards.forEach((card, i) => {
+      if (card) {
+        card.style.transition = 'none';
+        card.style.opacity = '0';
+        card.style.transform = '';
+        // Make sure card is visible in DOM but invisible
+        card.style.display = 'block';
+      }
+    });
+
+    setTimeout(() => {
+      switch(animationType) {
+        case 'cascade':
+          animateCascadeDrop(visibleCards);
+          break;
+        case 'fan':
+          animateFanOutIn(visibleCards);
+          break;
+        case 'swipe-preview':
+          animateSwipePreview(visibleCards);
+          break;
+        case 'bounce-stack':
+          animateBounceStack(visibleCards);
+          break;
+        case 'shuffle':
+          animateShuffleStack(visibleCards);
+          break;
+        case 'pile-pour':
+          animatePilePour(visibleCards);
+          break;
+      }
+    }, 50);
+
+    // Show overlay hint after animation
+    if (!hasSeenOnboarding) {
+      setTimeout(() => {
+        document.getElementById('onboarding-overlay').classList.add('visible');
+        setTimeout(() => {
+          document.getElementById('onboarding-overlay').classList.remove('visible');
+          localStorage.setItem('hasSeenOnboarding', 'true');
+          hasSeenOnboarding = true;
+        }, 3000);
+      }, 1600);
+    }
+  }
+
+  // Helper function to set final stack state
+  function setFinalStackState(cards) {
+    cards.forEach((card, i) => {
+      if (card) {
+        // Remove any inline transform styles to let CSS classes take over
+        setTimeout(() => {
+          card.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+          card.style.transform = '';
+          card.style.opacity = '';
+          card.className = `card visible stack-${i}`;
+        }, 100);
+      }
+    });
+  }
+
+  // 1. Cascade Drop Animation
+  function animateCascadeDrop(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start from above
+      card.style.transform = 'translateY(-200vh) rotate(0deg)';
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+        
+        // Get the final transform from CSS
+        const finalTransforms = {
+          0: 'translate(0, 0) rotate(0deg)',
+          1: 'translate(-6px, -15px) rotate(-2deg)', 
+          2: 'translate(6px, -30px) rotate(2deg)',
+          3: 'translate(-3px, -45px) rotate(-1deg)'
+        };
+        
+        card.style.transform = finalTransforms[i] || 'translate(0, 0) rotate(0deg)';
+        card.className = `card visible stack-${i}`;
+      }, i * 150);
+    });
+    
+    // Clean up and ensure final state after animation
+    setTimeout(() => {
+      setFinalStackState(cards);
+    }, cards.length * 150 + 600);
+  }
+
+  // 2. Fan Out & In Animation
+  function animateFanOutIn(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start fanned out
+      const angle = (i - 1.5) * 25;
+      const distance = 100 + i * 30;
+      card.style.transform = `translateX(${Math.sin(angle * Math.PI / 180) * distance}px) translateY(${Math.cos(angle * Math.PI / 180) * distance}px) rotate(${angle}deg)`;
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        
+        // Animate to final stack positions
+        const finalTransforms = {
+          0: 'translate(0, 0) rotate(0deg)',
+          1: 'translate(-6px, -15px) rotate(-2deg)', 
+          2: 'translate(6px, -30px) rotate(2deg)',
+          3: 'translate(-3px, -45px) rotate(-1deg)'
+        };
+        
+        card.style.transform = finalTransforms[i] || 'translate(0, 0) rotate(0deg)';
+        card.className = `card visible stack-${i}`;
+      }, 300);
+    });
+    
+    // Clean up and ensure final state after animation
+    setTimeout(() => {
+      setFinalStackState(cards);
+    }, 1100);
+  }
+
+  // 3. Swipe Preview Animation
+  function animateSwipePreview(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      card.style.opacity = '1';
+      card.className = `card visible stack-${i}`;
+      
+      // Set initial proper stack positions
+      const finalTransforms = {
+        0: 'translate(0, 0) rotate(0deg)',
+        1: 'translate(-6px, -15px) rotate(-2deg)', 
+        2: 'translate(6px, -30px) rotate(2deg)',
+        3: 'translate(-3px, -45px) rotate(-1deg)'
+      };
+      card.style.transform = finalTransforms[i] || 'translate(0, 0) rotate(0deg)';
+      
+      if (i === 0) {
+        // Top card shows swipe motion
+        setTimeout(() => {
+          card.style.transition = 'transform 0.4s ease-in-out';
+          card.style.transform = 'translateY(-80px) rotate(-3deg)';
+          
+          setTimeout(() => {
+            card.style.transform = 'translateY(60px) rotate(2deg)';
+            
+            setTimeout(() => {
+              card.style.transform = 'translate(0, 0) rotate(0deg)';
+            }, 400);
+          }, 400);
+        }, 200);
+      }
+    });
+    
+    // Clean up and ensure final state after animation
+    setTimeout(() => {
+      setFinalStackState(cards);
+    }, 1400);
+  }
+
+  // 4. Bounce Stack Animation
+  function animateBounceStack(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start from center, scaled down but not too small
+      card.style.transform = 'translateY(50px) scale(0.7) rotate(0deg)';
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+        
+        // Animate to final stack positions with proper scale
+        const finalTransforms = {
+          0: 'translate(0, 0) rotate(0deg) scale(1)',
+          1: 'translate(-6px, -15px) rotate(-2deg) scale(1)', 
+          2: 'translate(6px, -30px) rotate(2deg) scale(1)',
+          3: 'translate(-3px, -45px) rotate(-1deg) scale(1)'
+        };
+        
+        card.style.transform = finalTransforms[i] || 'translate(0, 0) rotate(0deg) scale(1)';
+        card.className = `card visible stack-${i}`;
+      }, i * 100);
+    });
+    
+    // Clean up and ensure final state after animation
+    setTimeout(() => {
+      setFinalStackState(cards);
+    }, cards.length * 100 + 700);
+  }
+
+  // 5. Shuffle & Stack Animation
+  function animateShuffleStack(cards) {
+    cards.forEach((card, i) => {
+      if (!card) return;
+      
+      // Start randomly positioned
+      const randomX = (Math.random() - 0.5) * 400;
+      const randomY = (Math.random() - 0.5) * 300;
+      const randomRotation = (Math.random() - 0.5) * 180;
+      
+      card.style.transform = `translate(${randomX}px, ${randomY}px) rotate(${randomRotation}deg) scale(0.8)`;
+      card.style.opacity = '1';
+      
+      setTimeout(() => {
+        card.style.transition = 'all 1s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        
+        // Animate to final stack positions
+        const finalTransforms = {
+          0: 'translate(0, 0) rotate(0deg) scale(1)',
+          1: 'translate(-6px, -15px) rotate(-2deg) scale(1)', 
+          2: 'translate(6px, -30px) rotate(2deg) scale(1)',
+          3: 'translate(-3px, -45px) rotate(-1deg) scale(1)'
+        };
+        
+        card.style.transform = finalTransforms[i] || 'translate(0, 0) rotate(0deg) scale(1)';
+        card.className = `card visible stack-${i}`;
+      }, 200 + i * 80);
+    });
+    
+    // Clean up and ensure final state after animation
+    setTimeout(() => {
+      setFinalStackState(cards);
+    }, 200 + cards.length * 80 + 1000);
+  }
+
+  // 6. Pile Pour Animation - Bottom card appears first, then cards pour from above
+  function animatePilePour(cards) {
+    if (cards.length === 0) return;
+    
+    const finalTransforms = {
+      0: 'translate(0, 0) rotate(0deg)',
+      1: 'translate(-6px, -15px) rotate(-2deg)', 
+      2: 'translate(6px, -30px) rotate(2deg)',
+      3: 'translate(-3px, -45px) rotate(-1deg)'
+    };
+    
+    // Pour ALL cards from above, starting with bottom card (foundation)
+    // Order: stack-3 (bottom) → stack-2 → stack-1 → stack-0 (top card for interaction)
+    for (let stackIndex = cards.length - 1; stackIndex >= 0; stackIndex--) {
+      const card = cards[stackIndex];
+      if (!card) continue;
+      
+      // Start from above
+      card.style.transform = 'translateY(-200vh) rotate(0deg)';
+      card.style.opacity = '1';
+      
+      // Calculate delay: pour all cards from bottom to top
+      const pourOrder = (cards.length - 1) - stackIndex; // 0 for bottom card, 1 for stack-2, 2 for stack-1, 3 for stack-0
+      const delay = 200 + pourOrder * 150; // Start pouring immediately
+      
+      setTimeout(() => {
+        // Get rotation for this stack position
+        const rotations = { 0: '0deg', 1: '-2deg', 2: '2deg', 3: '-1deg' };
+        const targetRotation = rotations[stackIndex] || '0deg';
+        
+        // Set CSS custom property for the target rotation
+        card.style.setProperty('--target-rotation', targetRotation);
+        
+        // Apply bouncy landing animation with gravity-like acceleration
+        card.style.animation = 'card-bounce-land 1.1s ease-in forwards';
+        card.className = `card visible stack-${stackIndex}`;
+        
+        // Set final transform and position after animation
+        setTimeout(() => {
+          card.style.animation = '';
+          card.style.transform = finalTransforms[stackIndex] || 'translate(0, 0) rotate(0deg)';
+        }, 1100);
+      }, delay);
+    }
+    
+    // Clean up and ensure final state after animation
+    const totalAnimationTime = 200 + cards.length * 150 + 1100; // All cards now fall with realistic gravity
+    setTimeout(() => {
+      setFinalStackState(cards);
+    }, totalAnimationTime);
+  }
+
+  // Dismiss onboarding overlay on click
+  document.getElementById('onboarding-overlay').addEventListener('click', function() {
+    this.classList.remove('visible');
+    localStorage.setItem('hasSeenOnboarding', 'true');
+    hasSeenOnboarding = true;
+  });
+
+</script>
+</body>
+</html>
