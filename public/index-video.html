@@ -67,8 +67,10 @@
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
     .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
-    .story-dot{width:32px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px;transition:background .3s}
+    .story-dot{width:32px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px;transition:background .3s;position:relative;overflow:hidden}
     .story-dot.active{background:rgba(255,255,255,0.9)}
+    .story-dot.active.progress{background:rgba(255,255,255,0.4)}
+    .story-dot.active.progress::after{content:'';position:absolute;top:0;left:0;height:100%;background:rgba(255,255,255,0.9);border-radius:2px;width:var(--progress, 0%);transition:width 0.1s linear}
     
     .photo-nav-areas{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;z-index:3}
     .photo-nav{flex:1;cursor:pointer}
@@ -205,7 +207,16 @@
     return arr[Math.floor(Math.random() * arr.length)]; 
   }
 
-  function createTagsFromStopFactors(context) {
+  // Global state for auto-slide
+  let autoSlideIntervals = new Map();
+  let autoSlideTimeouts = new Map();
+  
+  // Touch handling for swipe
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let isSwiping = false;
+
+  function createTagsFromStopFactors(context, slideIndex = 0) {
     if (!context || !context.stop_factors || !context.stop_factors.length) {
       return [{icon: '🍴', text: 'Поесть'}];
     }
@@ -229,8 +240,29 @@
     
     const tags = [];
     
-    // Take first two stop factors
-    for (const factor of context.stop_factors.slice(0, 2)) {
+    // Show different stop factors based on slide index
+    let startIndex, endIndex;
+    switch(slideIndex) {
+      case 0:
+        startIndex = 0;
+        endIndex = 2;
+        break;
+      case 1:
+        startIndex = 2;
+        endIndex = 4;
+        break;
+      case 2:
+        startIndex = 4;
+        endIndex = 6;
+        break;
+      default:
+        startIndex = 0;
+        endIndex = 2;
+    }
+    
+    // Take stop factors for current slide
+    const factorsForSlide = context.stop_factors.slice(startIndex, endIndex);
+    for (const factor of factorsForSlide) {
       const icon = iconMap[factor.tag] || '🏷️';
       tags.push({
         icon: icon,
@@ -238,7 +270,12 @@
       });
     }
     
-    return tags.length > 0 ? tags : [{icon: '🍴', text: 'Поесть'}];
+    // Fallback if no factors for this slide
+    if (tags.length === 0) {
+      return slideIndex === 0 ? [{icon: '🍴', text: 'Поесть'}] : [];
+    }
+    
+    return tags;
   }
 
   function formatWorkingHours(schedule) {
@@ -494,6 +531,11 @@
         photos: getPhotosFromItem(item), // Fallback photos
         friends: friends,
         tags: createTagsFromStopFactors(item.context),
+        allTags: {
+          slide0: createTagsFromStopFactors(item.context, 0),
+          slide1: createTagsFromStopFactors(item.context, 1),
+          slide2: createTagsFromStopFactors(item.context, 2)
+        },
         rating: rating,
         workingHours: formatWorkingHours(item.schedule),
         originalData: item
@@ -828,7 +870,7 @@
         ${dotsHtml}
         ${photoNavHtml}
         <div class="slide-img-overlay">
-          <div class="slide-tags">${company.tags.map(t=>`<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`).join('')}</div>
+          <div class="slide-tags" data-slide-tags></div>
           <div class="slide-friends">
             ${company.friends.slice(0,2).map(f=>`<img class='friend-avatar' src='${f}' alt=''/>`).join('')}
             <span class="friends-text">Были друзья</span>
@@ -871,10 +913,180 @@
       });
     });
     
+    // Add touch/swipe handlers to the image container
+    const imageContainer = card.querySelector('.slide-image-container');
+    if (imageContainer) {
+      imageContainer.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isSwiping = false;
+        
+        // Stop auto-slide when user starts touching
+        stopAutoSlide(index);
+      }, { passive: true });
+      
+      imageContainer.addEventListener('touchmove', (e) => {
+        if (!isSwiping) {
+          const touchCurrentX = e.touches[0].clientX;
+          const touchCurrentY = e.touches[0].clientY;
+          const deltaX = Math.abs(touchCurrentX - touchStartX);
+          const deltaY = Math.abs(touchCurrentY - touchStartY);
+          
+          // Only consider horizontal swipes (more horizontal than vertical movement)
+          if (deltaX > deltaY && deltaX > 10) {
+            isSwiping = true;
+            e.preventDefault(); // Prevent scrolling
+          }
+        }
+      });
+      
+      imageContainer.addEventListener('touchend', (e) => {
+        if (isSwiping) {
+          const touchEndX = e.changedTouches[0].clientX;
+          const deltaX = touchEndX - touchStartX;
+          const threshold = 50; // Minimum swipe distance
+          
+          if (Math.abs(deltaX) > threshold) {
+            const direction = deltaX > 0 ? 'prev' : 'next';
+            navigatePhoto(index, direction);
+          }
+        }
+        
+        // Restart auto-slide after touch ends
+        startAutoSlide(index);
+        isSwiping = false;
+      }, { passive: true });
+    }
+    
+    // Initialize tags for current slide
+    updateSlideContent(index, 0);
+    
+    // Start auto-slide for this card
+    startAutoSlide(index);
+    
     return card;
   }
   
-  function navigatePhoto(cardIndex, direction) {
+  // Auto-slide management functions
+  function startAutoSlide(cardIndex) {
+    stopAutoSlide(cardIndex); // Clear any existing interval
+    
+    const company = companies[cardIndex];
+    const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+    if (mediaItems.length <= 1) return;
+    
+    const card = cards[cardIndex];
+    if (!card) return;
+    
+    let currentPhotoIndex = photoIndexes.get(cardIndex) || 0;
+    
+    // Start progress bar animation
+    startProgressBar(cardIndex, currentPhotoIndex);
+    
+    // Set interval for auto-advance
+    const interval = setInterval(() => {
+      navigatePhoto(cardIndex, 'next', true);
+    }, 3000);
+    
+    autoSlideIntervals.set(cardIndex, interval);
+  }
+  
+  function stopAutoSlide(cardIndex) {
+    const interval = autoSlideIntervals.get(cardIndex);
+    if (interval) {
+      clearInterval(interval);
+      autoSlideIntervals.delete(cardIndex);
+    }
+    
+    const timeout = autoSlideTimeouts.get(cardIndex);
+    if (timeout) {
+      clearTimeout(timeout);
+      autoSlideTimeouts.delete(cardIndex);
+    }
+    
+    // Stop progress bar animation
+    stopProgressBar(cardIndex);
+  }
+  
+  function startProgressBar(cardIndex, slideIndex) {
+    const card = cards[cardIndex];
+    if (!card) return;
+    
+    const dots = card.querySelectorAll('.story-dot');
+    const currentDot = dots[slideIndex];
+    if (!currentDot) return;
+    
+    // Reset all dots
+    dots.forEach(dot => {
+      dot.classList.remove('progress');
+      if (dot.style.setProperty) {
+        dot.style.setProperty('--progress', '0%');
+      }
+    });
+    
+    // Start progress on current dot
+    currentDot.classList.add('progress');
+    
+    // Animate progress bar
+    let progress = 0;
+    const step = 100 / 30; // 30 steps over 3 seconds (100ms each)
+    
+    const progressInterval = setInterval(() => {
+      progress += step;
+      if (currentDot.style.setProperty) {
+        currentDot.style.setProperty('--progress', `${Math.min(progress, 100)}%`);
+      }
+      
+      if (progress >= 100) {
+        clearInterval(progressInterval);
+      }
+    }, 100);
+    
+    autoSlideTimeouts.set(cardIndex, progressInterval);
+  }
+  
+  function stopProgressBar(cardIndex) {
+    const card = cards[cardIndex];
+    if (!card) return;
+    
+    const dots = card.querySelectorAll('.story-dot');
+    dots.forEach(dot => {
+      dot.classList.remove('progress');
+      if (dot.style.setProperty) {
+        dot.style.setProperty('--progress', '0%');
+      }
+    });
+  }
+  
+  function updateSlideContent(cardIndex, slideIndex) {
+    const company = companies[cardIndex];
+    const card = cards[cardIndex];
+    if (!card || !company.allTags) return;
+    
+    const tagsContainer = card.querySelector('[data-slide-tags]');
+    if (!tagsContainer) return;
+    
+    let tagsToShow = [];
+    switch(slideIndex) {
+      case 0:
+        tagsToShow = company.allTags.slide0 || [];
+        break;
+      case 1:
+        tagsToShow = company.allTags.slide1 || [];
+        break;
+      case 2:
+        tagsToShow = company.allTags.slide2 || [];
+        break;
+      default:
+        tagsToShow = company.allTags.slide0 || [];
+    }
+    
+    tagsContainer.innerHTML = tagsToShow.map(t => 
+      `<span class='slide-tag'><span class="slide-tag-icon">${t.icon}</span> ${t.text}</span>`
+    ).join('');
+  }
+  
+  function navigatePhoto(cardIndex, direction, isAutoAdvance = false) {
     const company = companies[cardIndex];
     const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
     if (mediaItems.length <= 1) return;
@@ -904,6 +1116,17 @@
     dots.forEach((dot, i) => {
       dot.classList.toggle('active', i === currentPhotoIndex);
     });
+    
+    // Update slide content (tags) based on current photo index
+    updateSlideContent(cardIndex, currentPhotoIndex);
+    
+    // Restart auto-slide if this was user-initiated navigation
+    if (!isAutoAdvance) {
+      startAutoSlide(cardIndex);
+    } else {
+      // If auto-advance, just start progress bar for next slide
+      startProgressBar(cardIndex, currentPhotoIndex);
+    }
   }
   
   function pauseCurrentVideo(card) {
@@ -1187,6 +1410,11 @@
     // Don't start drag if clicking on photo nav or action buttons
     if (e.target.closest('.photo-nav') || e.target.closest('.slide-action')) return;
     
+    // Stop auto-slide when user starts interacting with cards
+    autoSlideIntervals.forEach((interval, cardIndex) => {
+      stopAutoSlide(cardIndex);
+    });
+    
     isDragging = true;
     isHorizontalSwipe = false;
     
@@ -1383,6 +1611,13 @@
     currentY = 0;
     startX = 0;
     currentX = 0;
+    
+    // Restart auto-slide for the top card after interaction ends
+    setTimeout(() => {
+      if (cards[currentIndex]) {
+        startAutoSlide(currentIndex);
+      }
+    }, 500);
   }
   
   // Event listeners
@@ -1520,6 +1755,11 @@
   
   function goToCard(index) {
     if (index >= 0 && index < companies.length && index !== currentIndex) {
+      // Stop auto-slide for all cards
+      autoSlideIntervals.forEach((interval, cardIndex) => {
+        stopAutoSlide(cardIndex);
+      });
+      
       currentIndex = index;
       // Clear and rebuild stack
       cardStack.innerHTML = '';
