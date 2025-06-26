@@ -62,6 +62,8 @@
     .play-button{width:60px;height:60px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#333;transition:all 0.3s ease}
     .play-button:hover{background:#fff;transform:scale(1.1)}
     .video-playing .video-overlay{display:none}
+    .video-indicator{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:600;z-index:4}
+    .video-indicator::before{content:"🎥 ";margin-right:2px}
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
     .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
@@ -326,13 +328,19 @@
   // Process photo API response to extract best quality photos
   function processPhotoAPIResponse(photoData, objectId) {
     if (!photoData || !photoData.items || !photoData.items[objectId]) {
+      console.log(`No photo data found for object ${objectId}`);
       return [];
     }
     
     const photos = photoData.items[objectId];
     const processedPhotos = [];
+    const processedVideos = [];
+    
+    console.log(`Processing ${photos.length} media items for object ${objectId}:`, photos);
     
     for (const photo of photos.slice(0, 5)) { // Take up to 5 photos/videos
+      console.log(`Processing media item:`, photo);
+      
       if (photo.media_type === 'photo' && photo.photo && photo.photo.preview_urls) {
         // Use debug settings for photo size priority
         let photoUrl = null;
@@ -344,52 +352,86 @@
         }
         
         if (photoUrl) {
-          processedPhotos.push({
+          const photoItem = {
             type: 'photo',
             url: photoUrl,
             availableSizes: Object.keys(photo.photo.preview_urls),
             selectedSize: debugSettings.photoSizePriority.find(size => photo.photo.preview_urls[size])
-          });
+          };
+          processedPhotos.push(photoItem);
+          console.log(`✅ Added photo:`, photoItem);
         }
       } else if (photo.media_type === 'video' && photo.video) {
+        console.log(`🎥 Processing video:`, photo.video);
         // Handle video media
         let videoUrl = null;
         let coverUrl = null;
+        let streamType = null;
         
         // Get video stream URL (prefer HLS)
         if (photo.video.preview_urls && photo.video.preview_urls.length > 0) {
+          console.log(`Available video streams:`, photo.video.preview_urls);
           const hlsStream = photo.video.preview_urls.find(stream => stream.type === 'hls');
           const dashStream = photo.video.preview_urls.find(stream => stream.type === 'dash');
-          videoUrl = hlsStream ? hlsStream.url : (dashStream ? dashStream.url : null);
+          
+          if (hlsStream) {
+            videoUrl = hlsStream.url;
+            streamType = 'hls';
+            console.log(`✅ Using HLS stream:`, videoUrl);
+          } else if (dashStream) {
+            videoUrl = dashStream.url;
+            streamType = 'dash';
+            console.log(`✅ Using DASH stream:`, videoUrl);
+          } else {
+            console.warn(`❌ No HLS or DASH stream found for video`);
+          }
+        } else {
+          console.warn(`❌ No preview_urls found for video`);
         }
         
         // Get video cover/thumbnail
         if (photo.video.cover_urls) {
+          console.log(`Available cover sizes:`, Object.keys(photo.video.cover_urls));
           for (const size of debugSettings.photoSizePriority) {
             if (photo.video.cover_urls[size]) {
               coverUrl = photo.video.cover_urls[size];
+              console.log(`✅ Using cover size ${size}:`, coverUrl);
               break;
             }
           }
           // Fallback to url field if specific size not found
           if (!coverUrl && photo.video.cover_urls.url) {
             coverUrl = photo.video.cover_urls.url;
+            console.log(`✅ Using fallback cover:`, coverUrl);
           }
+        } else {
+          console.warn(`❌ No cover_urls found for video`);
         }
         
         if (videoUrl && coverUrl) {
-          processedPhotos.push({
+          const videoItem = {
             type: 'video',
             url: videoUrl,
             cover: coverUrl,
             availableSizes: photo.video.cover_urls ? Object.keys(photo.video.cover_urls) : [],
-            streamType: photo.video.preview_urls.find(stream => stream.type === 'hls') ? 'hls' : 'dash'
-          });
+            streamType: streamType,
+            originalData: photo.video
+          };
+          processedVideos.push(videoItem);
+          console.log(`🎥✅ Added video:`, videoItem);
+        } else {
+          console.warn(`❌ Skipping video - missing URL or cover:`, {videoUrl, coverUrl});
         }
+      } else {
+        console.log(`⚠️ Unknown or incomplete media type:`, photo);
       }
     }
     
-    return processedPhotos;
+    // VIDEOS FIRST: Prioritize videos at the beginning of the array
+    const finalMediaArray = [...processedVideos, ...processedPhotos];
+    console.log(`📊 Final media array for ${objectId} (${finalMediaArray.length} items):`, finalMediaArray);
+    
+    return finalMediaArray;
   }
 
   // API fetch function
@@ -664,12 +706,22 @@
       if (mediaItem.type === 'video') {
         return `
           <div class="media-item" style="width: ${100 / mediaItems.length}%;">
-            <video class="slide-video" preload="metadata" muted playsinline style="object-fit: ${debugSettings.objectFit};" data-video-url="${mediaItem.url}" data-stream-type="${mediaItem.streamType}">
+            <video class="slide-video" 
+                   preload="metadata" 
+                   muted 
+                   playsinline 
+                   poster="${mediaItem.cover}"
+                   style="object-fit: ${debugSettings.objectFit};" 
+                   data-video-url="${mediaItem.url}" 
+                   data-stream-type="${mediaItem.streamType}"
+                   data-media-index="${mediaIndex}">
               <source src="${mediaItem.url}" type="application/x-mpegURL">
+              Your browser does not support the video tag.
             </video>
             <div class="video-overlay" data-media-index="${mediaIndex}">
               <div class="play-button">▶</div>
             </div>
+            <div class="video-indicator">VIDEO</div>
           </div>
         `;
       } else {
@@ -795,25 +847,43 @@
     playingVideos.forEach(video => {
       video.pause();
       video.currentTime = 0;
+      
+      // Clean up HLS instance if it exists
+      if (video.hlsInstance) {
+        console.log(`🧹 Cleaning up HLS instance`);
+        video.hlsInstance.destroy();
+        video.hlsInstance = null;
+      }
     });
     // Remove playing state from all media items
     const mediaItems = card.querySelectorAll('.media-item');
     mediaItems.forEach(item => item.classList.remove('video-playing'));
   }
   
-  async function playVideo(cardIndex, mediaIndex) {
+  async function playVideo(cardIndex, mediaIndex, autoplay = false) {
     const company = companies[cardIndex];
     const card = cards[cardIndex];
-    if (!card || !company.media) return;
+    if (!card || !company.media) {
+      console.warn(`❌ Cannot play video - missing card or media for card ${cardIndex}`);
+      return;
+    }
     
     const mediaItem = company.media[mediaIndex];
-    if (mediaItem.type !== 'video') return;
+    if (mediaItem.type !== 'video') {
+      console.warn(`❌ Cannot play - media item ${mediaIndex} is not a video:`, mediaItem);
+      return;
+    }
     
     const mediaItemElement = card.querySelectorAll('.media-item')[mediaIndex];
     const video = mediaItemElement.querySelector('video');
     const overlay = mediaItemElement.querySelector('.video-overlay');
     
-    if (!video) return;
+    if (!video) {
+      console.error(`❌ No video element found for media index ${mediaIndex}`);
+      return;
+    }
+    
+    console.log(`🎥 ${autoplay ? 'Auto-playing' : 'Playing'} video for card ${cardIndex}, media ${mediaIndex}:`, mediaItem);
     
     try {
       // Pause any other playing videos first
@@ -821,40 +891,91 @@
       
       // Check if HLS.js is needed for HLS streams
       if (mediaItem.streamType === 'hls' && mediaItem.url.includes('.m3u8')) {
+        console.log(`🎥 Setting up HLS stream:`, mediaItem.url);
+        
         if (window.Hls && Hls.isSupported()) {
-          const hls = new Hls();
+          console.log(`✅ Using HLS.js for streaming`);
+          const hls = new Hls({
+            debug: true,
+            enableWorker: false
+          });
+          
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error(`❌ HLS Error:`, event, data);
+            if (data.fatal) {
+              console.error(`❌ Fatal HLS error, trying fallback`);
+              // Try fallback
+              video.src = mediaItem.url;
+              video.play().catch(e => console.error(`❌ Fallback play failed:`, e));
+            }
+          });
+          
           hls.loadSource(mediaItem.url);
           hls.attachMedia(video);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play();
+          
+          hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+            console.log(`✅ HLS manifest parsed, playing video`);
+            try {
+              await video.play();
+              console.log(`✅ Video playing successfully`);
+            } catch (e) {
+              console.error(`❌ HLS play failed:`, e);
+            }
           });
+          
+          // Store HLS instance for cleanup
+          video.hlsInstance = hls;
+          
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Native HLS support (Safari)
+          console.log(`✅ Using native HLS support (Safari)`);
           video.src = mediaItem.url;
           await video.play();
+          console.log(`✅ Native HLS playing successfully`);
         } else {
-          console.warn('HLS not supported, trying direct play');
+          console.warn(`⚠️ HLS not supported, trying direct play`);
           video.src = mediaItem.url;
           await video.play();
         }
       } else {
-        // Direct video play for other formats
+        console.log(`🎥 Playing direct video stream:`, mediaItem.url);
         video.src = mediaItem.url;
         await video.play();
+        console.log(`✅ Direct video playing successfully`);
       }
       
       // Mark as playing
       mediaItemElement.classList.add('video-playing');
+      console.log(`✅ Video marked as playing`);
       
-      // Handle video ended
+      // Handle video events
       video.addEventListener('ended', () => {
+        console.log(`🎥 Video ended for card ${cardIndex}`);
         mediaItemElement.classList.remove('video-playing');
         video.currentTime = 0;
       });
       
+      video.addEventListener('error', (e) => {
+        console.error(`❌ Video error:`, e, video.error);
+      });
+      
     } catch (error) {
-      console.error('Error playing video:', error);
-      // Show fallback or error state
+      console.error(`❌ Error playing video for card ${cardIndex}:`, error);
+    }
+  }
+  
+  // Auto-play first video when card becomes visible
+  function autoplayFirstVideo(cardIndex) {
+    const company = companies[cardIndex];
+    if (!company.media || company.media.length === 0) return;
+    
+    // Find first video in media array
+    const firstVideoIndex = company.media.findIndex(item => item.type === 'video');
+    if (firstVideoIndex !== -1) {
+      console.log(`🎥 Auto-playing first video for card ${cardIndex} at media index ${firstVideoIndex}`);
+      // Small delay to ensure card is fully rendered
+      setTimeout(() => {
+        playVideo(cardIndex, firstVideoIndex, true);
+      }, 100);
     }
   }
   
@@ -898,6 +1019,11 @@
     
     // Always highlight marker
     highlightMarker(currentIndex);
+    
+    // Auto-play first video on the current (top) card
+    if (currentIndex < companies.length) {
+      autoplayFirstVideo(currentIndex);
+    }
     
     // Only fly to marker if not skipping animation
     if (!skipAnimation) {
