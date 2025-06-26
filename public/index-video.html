@@ -62,8 +62,7 @@
     .play-button{width:60px;height:60px;background:rgba(255,255,255,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#333;transition:all 0.3s ease}
     .play-button:hover{background:#fff;transform:scale(1.1)}
     .video-playing .video-overlay{display:none}
-    .video-indicator{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:600;z-index:4}
-    .video-indicator::before{content:"🎥 ";margin-right:2px}
+
     .slide-img-overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
     
     .stories-dots{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
@@ -505,12 +504,29 @@
       const objectIds = companies.map(company => company.id).filter(id => id && !id.startsWith('place_'));
       
       if (objectIds.length > 0) {
-        console.log('Fetching photos for object IDs:', objectIds);
+        console.log('🔍 Fetching photos for object IDs:', objectIds);
+        console.log('🏢 Companies before photo processing:', companies.map(c => ({id: c.id, name: c.name})));
+        
         const photoData = await fetchPhotosFromAPI(objectIds);
         
         console.log('📷 Raw photo API response:', photoData);
         
+        // Check if specific company data exists
+        const testCompanyId = '70000001062464140';
+        if (photoData && photoData.items && photoData.items[testCompanyId]) {
+          console.log(`🎯 Found data for test company ${testCompanyId}:`, photoData.items[testCompanyId]);
+          console.log(`🎥 Videos in test company:`, photoData.items[testCompanyId].filter(item => item.media_type === 'video'));
+        } else {
+          console.warn(`❌ No data found for test company ${testCompanyId}`);
+        }
+        
         if (photoData) {
+          // Test processPhotoAPIResponse for specific company
+          const testCompanyId = '70000001062464140';
+          console.log(`🧪 Testing processPhotoAPIResponse for ${testCompanyId}`);
+          const testResult = processPhotoAPIResponse(photoData, testCompanyId);
+          console.log(`🧪 Test result:`, testResult);
+          
           // Update companies with enhanced photos and videos
           companies.forEach((company, index) => {
             if (company.id && !company.id.startsWith('place_')) {
@@ -549,10 +565,20 @@
           });
         }
       }
-    } catch (error) {
-      console.error('Error enhancing with photo API:', error);
-      // Continue with fallback photos
-    }
+            } catch (error) {
+          console.error('Error enhancing with photo API:', error);
+          // Continue with fallback photos
+        }
+        
+        // Final check: log companies with media arrays
+        console.log('🔍 Final check - Companies with media arrays:');
+        companies.forEach((company, index) => {
+          if (company.media && company.media.length > 0) {
+            console.log(`✅ ${company.name} has ${company.media.length} media items:`, company.media.map(m => m.type));
+          } else {
+            console.log(`❌ ${company.name} has NO media array (only photos: ${company.photos ? company.photos.length : 0})`);
+          }
+        });
 
     return companies;
   }
@@ -746,6 +772,7 @@
                    preload="metadata" 
                    muted 
                    playsinline 
+                   loop
                    poster="${mediaItem.cover}"
                    style="object-fit: ${debugSettings.objectFit};" 
                    data-video-url="${mediaItem.url}" 
@@ -757,7 +784,7 @@
             <div class="video-overlay" data-media-index="${mediaIndex}">
               <div class="play-button">▶</div>
             </div>
-            <div class="video-indicator">VIDEO</div>
+
           </div>
         `;
       } else {
@@ -983,13 +1010,10 @@
       mediaItemElement.classList.add('video-playing');
       console.log(`✅ Video marked as playing`);
       
-      // Handle video events
-      video.addEventListener('ended', () => {
-        console.log(`🎥 Video ended for card ${cardIndex}`);
-        mediaItemElement.classList.remove('video-playing');
-        video.currentTime = 0;
-      });
+      // Set video to loop
+      video.loop = true;
       
+      // Handle video events
       video.addEventListener('error', (e) => {
         console.error(`❌ Video error:`, e, video.error);
       });
@@ -1012,6 +1036,54 @@
       setTimeout(() => {
         playVideo(cardIndex, firstVideoIndex, true);
       }, 100);
+    }
+  }
+  
+  // Prefetch videos for next company
+  function prefetchNextVideo(currentCardIndex) {
+    const nextCardIndex = (currentCardIndex + 1) % companies.length;
+    const nextCompany = companies[nextCardIndex];
+    
+    if (!nextCompany || !nextCompany.media) return;
+    
+    // Find first video in next company
+    const firstVideoIndex = nextCompany.media.findIndex(item => item.type === 'video');
+    if (firstVideoIndex !== -1) {
+      console.log(`🔄 Prefetching video for next card ${nextCardIndex}`);
+      
+      // Check if card exists, if not create it
+      let nextCard = cards[nextCardIndex];
+      if (!nextCard) {
+        console.log(`📦 Creating next card for prefetch: ${nextCompany.name}`);
+        nextCard = createCard(nextCompany, nextCardIndex);
+        cards[nextCardIndex] = nextCard;
+        // Add to DOM but keep hidden
+        nextCard.style.display = 'none';
+        cardStack.appendChild(nextCard);
+      }
+      
+      // Preload the video (but don't play it)
+      const videoElement = nextCard.querySelectorAll('.media-item')[firstVideoIndex]?.querySelector('video');
+      if (videoElement && !videoElement.src) {
+        const mediaItem = nextCompany.media[firstVideoIndex];
+        console.log(`🎬 Preloading video for ${nextCompany.name}:`, mediaItem.url);
+        
+        if (mediaItem.streamType === 'hls' && mediaItem.url.includes('.m3u8')) {
+          if (window.Hls && Hls.isSupported()) {
+            const hls = new Hls({
+              enableWorker: false,
+              startLevel: -1 // Let HLS.js choose the best quality
+            });
+            hls.loadSource(mediaItem.url);
+            hls.attachMedia(videoElement);
+            videoElement.hlsInstance = hls;
+            console.log(`✅ HLS preloaded for ${nextCompany.name}`);
+          }
+        } else {
+          videoElement.src = mediaItem.url;
+          console.log(`✅ Direct video preloaded for ${nextCompany.name}`);
+        }
+      }
     }
   }
   
@@ -1059,6 +1131,8 @@
     // Auto-play first video on the current (top) card
     if (currentIndex < companies.length) {
       autoplayFirstVideo(currentIndex);
+      // Prefetch next video for smooth transition
+      prefetchNextVideo(currentIndex);
     }
     
     // Only fly to marker if not skipping animation
@@ -1099,8 +1173,12 @@
   // Touch/drag handling
   let startY = 0;
   let currentY = 0;
+  let startX = 0;
+  let currentX = 0;
   let isDragging = false;
+  let isHorizontalSwipe = false;
   let dragThreshold = 80;
+  let horizontalThreshold = 50;
   
   function handleStart(e) {
     const topCard = cards[currentIndex];
@@ -1110,8 +1188,18 @@
     if (e.target.closest('.photo-nav') || e.target.closest('.slide-action')) return;
     
     isDragging = true;
-    startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+    isHorizontalSwipe = false;
+    
+    if (e.type.includes('mouse')) {
+      startY = e.clientY;
+      startX = e.clientX;
+    } else {
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+    }
+    
     currentY = startY;
+    currentX = startX;
     dragPrevCard = null; // reset temp card reference
     topCard.classList.add('dragging');
   }
@@ -1120,47 +1208,81 @@
     if (!isDragging) return;
     e.preventDefault();
     
-    currentY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+    if (e.type.includes('mouse')) {
+      currentY = e.clientY;
+      currentX = e.clientX;
+    } else {
+      currentY = e.touches[0].clientY;
+      currentX = e.touches[0].clientX;
+    }
+    
     const deltaY = currentY - startY;
+    const deltaX = currentX - startX;
     const topCard = cards[currentIndex];
     
-    if (deltaY < 0) {
-      // Forward swipe (up) — move current card with finger
-      topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
-      topCard.style.opacity = 1 - Math.abs(deltaY) / 300;
-      // Ensure any temp previous card is removed if user changes direction
-      if (dragPrevCard) {
-        dragPrevCard.remove();
-        dragPrevCard = null;
-      }
-    } else if (currentIndex > 0) {
-      // Backward swipe (down) — reveal previous card interactively
-      // Keep current top card fixed
-      topCard.style.transform = '';
-      topCard.style.opacity = '';
+    // Determine if this is a horizontal or vertical swipe
+    if (!isHorizontalSwipe && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
+      isHorizontalSwipe = true;
+      console.log('🔄 Horizontal swipe detected for media navigation');
+    }
+    
+    if (isHorizontalSwipe) {
+      // Handle horizontal swipe for media navigation
+      const company = companies[currentIndex];
+      const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
       
-      const pIdx = prevIndex(currentIndex);
-      if (!dragPrevCard) {
-        // Create card if it does not exist yet
-        dragPrevCard = cards[pIdx] || createCard(companies[pIdx], pIdx);
-        cards[pIdx] = dragPrevCard;
-        dragPrevCard.style.display = 'block';
-        dragPrevCard.style.position = 'absolute';
-        dragPrevCard.style.left = '0';
-        dragPrevCard.style.right = '0';
-        dragPrevCard.style.transition = 'none';
-        dragPrevCard.style.zIndex = '5';
-        dragPrevCard.style.transform = `translateY(${BACK_START}px) rotate(5deg)`;
-        dragPrevCard.style.opacity = '0';
-        dragPrevCard.className = 'card visible';
-        cardStack.appendChild(dragPrevCard);
+      if (mediaItems.length > 1) {
+        // Visual feedback for horizontal swipe
+        const imageContainer = topCard.querySelector('.slide-image-container');
+        if (imageContainer) {
+          const opacity = Math.max(0.3, 1 - Math.abs(deltaX) / 200);
+          imageContainer.style.opacity = opacity;
+          
+          // Add slight tilt based on swipe direction
+          const tilt = deltaX * 0.1;
+          imageContainer.style.transform = `rotate(${tilt}deg)`;
+        }
       }
-      // Calculate transform, rotation, opacity to mirror forward drag
-      const translateY = Math.min(0, BACK_START + deltaY); // moves from BACK_START to 0
-      const progress = 1 - Math.abs(translateY / BACK_START); // 0 -> 1
-      const rotation = 5 * (1 - progress); // 5deg -> 0deg
-      dragPrevCard.style.transform = `translateY(${translateY}px) rotate(${rotation}deg)`;
-      dragPrevCard.style.opacity = progress;
+    } else {
+      // Handle vertical swipe for card navigation (existing logic)
+      if (deltaY < 0) {
+        // Forward swipe (up) — move current card with finger
+        topCard.style.transform = `translateY(${deltaY}px) rotate(${deltaY * 0.02}deg)`;
+        topCard.style.opacity = 1 - Math.abs(deltaY) / 300;
+        // Ensure any temp previous card is removed if user changes direction
+        if (dragPrevCard) {
+          dragPrevCard.remove();
+          dragPrevCard = null;
+        }
+      } else if (currentIndex > 0) {
+        // Backward swipe (down) — reveal previous card interactively
+        // Keep current top card fixed
+        topCard.style.transform = '';
+        topCard.style.opacity = '';
+        
+        const pIdx = prevIndex(currentIndex);
+        if (!dragPrevCard) {
+          // Create card if it does not exist yet
+          dragPrevCard = cards[pIdx] || createCard(companies[pIdx], pIdx);
+          cards[pIdx] = dragPrevCard;
+          dragPrevCard.style.display = 'block';
+          dragPrevCard.style.position = 'absolute';
+          dragPrevCard.style.left = '0';
+          dragPrevCard.style.right = '0';
+          dragPrevCard.style.transition = 'none';
+          dragPrevCard.style.zIndex = '5';
+          dragPrevCard.style.transform = `translateY(${BACK_START}px) rotate(5deg)`;
+          dragPrevCard.style.opacity = '0';
+          dragPrevCard.className = 'card visible';
+          cardStack.appendChild(dragPrevCard);
+        }
+        // Calculate transform, rotation, opacity to mirror forward drag
+        const translateY = Math.min(0, BACK_START + deltaY); // moves from BACK_START to 0
+        const progress = 1 - Math.abs(translateY / BACK_START); // 0 -> 1
+        const rotation = 5 * (1 - progress); // 5deg -> 0deg
+        dragPrevCard.style.transform = `translateY(${translateY}px) rotate(${rotation}deg)`;
+        dragPrevCard.style.opacity = progress;
+      }
     }
   }
   
@@ -1172,70 +1294,95 @@
     topCard.classList.remove('dragging');
     
     const deltaY = currentY - startY;
+    const deltaX = currentX - startX;
     
-    if (deltaY < -dragThreshold && currentIndex < companies.length - 1) {
-      // Swipe up - next card
-      topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
-      topCard.style.opacity = '0';
-      currentIndex = nextIndex(currentIndex);
-      updateStack();
-    } else if (deltaY < -dragThreshold && currentIndex === companies.length -1) {
-      // Swipe up from last card to first (loop)
-      topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
-      topCard.style.opacity = '0';
-      currentIndex = 0;
-      updateStack();
-    } else if (deltaY > dragThreshold && currentIndex === 0) {
-      // Swipe down from first card to last (loop)
-      const pIdx = companies.length -1;
-      let prevCard = dragPrevCard || cards[pIdx] || createCard(companies[pIdx], pIdx);
-      cards[pIdx] = prevCard;
-      prevCard.style.display='block';
-      cardStack.appendChild(prevCard);
-      prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
-      prevCard.style.transform='';
-      prevCard.style.opacity='1';
-      prevCard.className='card visible stack-0';
-      topCard.className='card visible stack-1';
-      setTimeout(()=>{
-        currentIndex = pIdx;
-        dragPrevCard=null;
-        updateStack();
-      },420);
-    } else if (deltaY > dragThreshold && currentIndex > 0) {
-      // Commit backward swipe — animate previous card into place
-      const pIdx = prevIndex(currentIndex);
-      // Ensure previous card element exists
-      let prevCard = dragPrevCard || cards[pIdx];
-      if (!prevCard) {
-        prevCard = createCard(companies[pIdx], pIdx);
-        cards[pIdx] = prevCard;
-        prevCard.style.display = 'block';
-        cardStack.appendChild(prevCard);
+    if (isHorizontalSwipe) {
+      // Handle horizontal swipe completion for media navigation
+      const company = companies[currentIndex];
+      const mediaItems = company.media || company.photos.map(photo => ({type: 'photo', url: photo}));
+      
+      if (mediaItems.length > 1 && Math.abs(deltaX) > horizontalThreshold) {
+        const direction = deltaX > 0 ? 'prev' : 'next';
+        console.log(`🔄 Completing horizontal swipe: ${direction}`);
+        navigatePhoto(currentIndex, direction);
       }
-      // Animate into position
-      prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
-      prevCard.style.transform = '';
-      prevCard.style.opacity = '1';
-      prevCard.className = 'card visible stack-0';
       
-      // Demote current top card
-      topCard.className = 'card visible stack-1';
+      // Reset visual feedback
+      const imageContainer = topCard.querySelector('.slide-image-container');
+      if (imageContainer) {
+        imageContainer.style.opacity = '';
+        imageContainer.style.transform = '';
+      }
       
-      // After animation finishes, update indices and stack
-      setTimeout(() => {
-        currentIndex = pIdx;
-        dragPrevCard = null;
-        updateStack();
-      }, 420);
+      isHorizontalSwipe = false;
     } else {
-      // Return to position
-      topCard.style.transform = '';
-      topCard.style.opacity = '';
+      // Handle vertical swipe completion for card navigation (existing logic)
+      if (deltaY < -dragThreshold && currentIndex < companies.length - 1) {
+        // Swipe up - next card
+        topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+        topCard.style.opacity = '0';
+        currentIndex = nextIndex(currentIndex);
+        updateStack();
+      } else if (deltaY < -dragThreshold && currentIndex === companies.length -1) {
+        // Swipe up from last card to first (loop)
+        topCard.style.transform = 'translateY(-150vh) rotate(-5deg)';
+        topCard.style.opacity = '0';
+        currentIndex = 0;
+        updateStack();
+      } else if (deltaY > dragThreshold && currentIndex === 0) {
+        // Swipe down from first card to last (loop)
+        const pIdx = companies.length -1;
+        let prevCard = dragPrevCard || cards[pIdx] || createCard(companies[pIdx], pIdx);
+        cards[pIdx] = prevCard;
+        prevCard.style.display='block';
+        cardStack.appendChild(prevCard);
+        prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+        prevCard.style.transform='';
+        prevCard.style.opacity='1';
+        prevCard.className='card visible stack-0';
+        topCard.className='card visible stack-1';
+        setTimeout(()=>{
+          currentIndex = pIdx;
+          dragPrevCard=null;
+          updateStack();
+        },420);
+      } else if (deltaY > dragThreshold && currentIndex > 0) {
+        // Commit backward swipe — animate previous card into place
+        const pIdx = prevIndex(currentIndex);
+        // Ensure previous card element exists
+        let prevCard = dragPrevCard || cards[pIdx];
+        if (!prevCard) {
+          prevCard = createCard(companies[pIdx], pIdx);
+          cards[pIdx] = prevCard;
+          prevCard.style.display = 'block';
+          cardStack.appendChild(prevCard);
+        }
+        // Animate into position
+        prevCard.style.transition = 'all .4s cubic-bezier(.25,.8,.25,1)';
+        prevCard.style.transform = '';
+        prevCard.style.opacity = '1';
+        prevCard.className = 'card visible stack-0';
+        
+        // Demote current top card
+        topCard.className = 'card visible stack-1';
+        
+        // After animation finishes, update indices and stack
+        setTimeout(() => {
+          currentIndex = pIdx;
+          dragPrevCard = null;
+          updateStack();
+        }, 420);
+      } else {
+        // Return to position
+        topCard.style.transform = '';
+        topCard.style.opacity = '';
+      }
     }
     
     startY = 0;
     currentY = 0;
+    startX = 0;
+    currentX = 0;
   }
   
   // Event listeners
