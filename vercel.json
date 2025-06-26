@@ -4,6 +4,10 @@
     {
       "src": "index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -12,8 +16,20 @@
       "dest": "/index.js"
     },
     {
-      "src": "/(.*\\.(html|css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
-      "dest": "/public/$1"
+      "src": "/index-video.html",
+      "dest": "/public/index-video.html"
+    },
+    {
+      "src": "/index-onboarding.html",
+      "dest": "/public/index-onboarding.html"
+    },
+    {
+      "src": "/index-real-data.html",
+      "dest": "/public/index-real-data.html"
+    },
+    {
+      "src": "/index-real-data-swyper.html",
+      "dest": "/public/index-real-data-swyper.html"
     },
     {
       "src": "/",
