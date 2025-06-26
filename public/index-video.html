@@ -947,7 +947,7 @@
       return;
     }
     
-    console.log(`🎥 ${autoplay ? 'Auto-playing' : 'Playing'} video for card ${cardIndex}, media ${mediaIndex}:`, mediaItem);
+
     
     try {
       // Pause any other playing videos first
@@ -958,12 +958,9 @@
       
       // Check if HLS.js is needed for HLS streams
       if (mediaItem.streamType === 'hls' && mediaItem.url.includes('.m3u8')) {
-        console.log(`🎥 Setting up HLS stream:`, mediaItem.url);
-        
         if (window.Hls && Hls.isSupported()) {
-          console.log(`✅ Using HLS.js for streaming`);
           const hls = new Hls({
-            debug: true,
+            debug: false,
             enableWorker: false
           });
           
@@ -987,12 +984,10 @@
           hls.attachMedia(video);
           
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
-            console.log(`✅ HLS manifest parsed, playing video`);
             try {
               await video.play();
               mediaItemElement.classList.remove('video-loading');
               mediaItemElement.classList.add('video-playing');
-              console.log(`✅ Video playing successfully`);
             } catch (e) {
               console.error(`❌ HLS play failed:`, e);
               mediaItemElement.classList.remove('video-loading');
@@ -1003,26 +998,21 @@
           video.hlsInstance = hls;
           
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          console.log(`✅ Using native HLS support (Safari)`);
           video.src = mediaItem.url;
           await video.play();
           mediaItemElement.classList.remove('video-loading');
           mediaItemElement.classList.add('video-playing');
-          console.log(`✅ Native HLS playing successfully`);
         } else {
-          console.warn(`⚠️ HLS not supported, trying direct play`);
           video.src = mediaItem.url;
           await video.play();
           mediaItemElement.classList.remove('video-loading');
           mediaItemElement.classList.add('video-playing');
         }
       } else {
-        console.log(`🎥 Playing direct video stream:`, mediaItem.url);
         video.src = mediaItem.url;
         await video.play();
         mediaItemElement.classList.remove('video-loading');
         mediaItemElement.classList.add('video-playing');
-        console.log(`✅ Direct video playing successfully`);
       }
 
       
@@ -1048,7 +1038,6 @@
     // Find first video in media array
     const firstVideoIndex = company.media.findIndex(item => item.type === 'video');
     if (firstVideoIndex !== -1) {
-      console.log(`🎥 Auto-playing first video for card ${cardIndex} at media index ${firstVideoIndex}`);
       // Small delay to ensure card is fully rendered
       setTimeout(() => {
         playVideo(cardIndex, firstVideoIndex, true);
@@ -1066,12 +1055,9 @@
     // Find first video in next company
     const firstVideoIndex = nextCompany.media.findIndex(item => item.type === 'video');
     if (firstVideoIndex !== -1) {
-      console.log(`🔄 Prefetching video for next card ${nextCardIndex}`);
-      
       // Check if card exists, if not create it
       let nextCard = cards[nextCardIndex];
       if (!nextCard) {
-        console.log(`📦 Creating next card for prefetch: ${nextCompany.name}`);
         nextCard = createCard(nextCompany, nextCardIndex);
         cards[nextCardIndex] = nextCard;
         // Add to DOM but keep hidden
@@ -1083,7 +1069,6 @@
       const videoElement = nextCard.querySelectorAll('.media-item')[firstVideoIndex]?.querySelector('video');
       if (videoElement && !videoElement.src) {
         const mediaItem = nextCompany.media[firstVideoIndex];
-        console.log(`🎬 Preloading video for ${nextCompany.name}:`, mediaItem.url);
         
         if (mediaItem.streamType === 'hls' && mediaItem.url.includes('.m3u8')) {
           if (window.Hls && Hls.isSupported()) {
@@ -1094,11 +1079,9 @@
             hls.loadSource(mediaItem.url);
             hls.attachMedia(videoElement);
             videoElement.hlsInstance = hls;
-            console.log(`✅ HLS preloaded for ${nextCompany.name}`);
           }
         } else {
           videoElement.src = mediaItem.url;
-          console.log(`✅ Direct video preloaded for ${nextCompany.name}`);
         }
       }
     }
