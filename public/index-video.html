@@ -15,6 +15,10 @@
     .map-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
     .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
     
+    .user-info{position:absolute;top:20px;left:20px;z-index:10;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:12px 16px;max-width:200px}
+    .user-id-display{font-size:14px;font-weight:600;color:#333;margin-bottom:4px}
+    .user-help{font-size:11px;color:#666;line-height:1.3}
+    
     .card-container{position:absolute;left:0;right:0;bottom:0;height:370px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px;transition:transform 500ms cubic-bezier(0.4,0,0.2,1)}
     .card-container.minimized{transform:translateY(290px)}
     .card-stack{position:relative;width:100%;max-width:400px;height:330px;pointer-events:auto}
@@ -110,6 +114,9 @@
       .card-container{height:390px;padding-bottom:16px}
       .card-container.minimized{transform:translateY(306px)}
       .map-controls{top:70px;right:16px}
+      .user-info{top:70px;left:16px;max-width:150px;padding:8px 12px}
+      .user-id-display{font-size:12px}
+      .user-help{font-size:10px}
     }
 
 
@@ -146,6 +153,16 @@
   <div class="map-btn" id="zoom-out">−</div>
 </div>
 
+<!-- User ID display -->
+<div class="user-info" id="user-info">
+  <div class="user-id-display">
+    👤 User: <span id="current-user-id"></span>
+  </div>
+  <div class="user-help">
+    <small>Change ?user_id=YOUR_ID in URL</small>
+  </div>
+</div>
+
 
 
 <!-- Onboarding Overlay -->
@@ -177,11 +194,34 @@
 
 <script src="https://mapgl.2gis.com/api/js"></script>
 <script>
-  // 2GIS API Configuration
-  const API_KEY = 'dad2d895-611d-4dc7-8e3d-3827eed58f2c';
-  const API_BASE_URL = 'https://catalog.api.2gis.com/3.0/items';
-  const SEARCH_QUERY = 'Поесть';
-  const MOSCOW_CENTER = [37.630866, 55.752256]; // lon, lat
+  // Personalized Recommendations API Configuration
+  const API_KEY = 'b4080922-5698-4e40-8f50-dc49aa55f3d6';
+  const API_BASE_URL = 'https://hybrid-feature-add-frien-v31rgm.api.k8s.2gis.dev/advices/v1/users';
+  const NOVOSIBIRSK_CENTER = [82.8906, 54.9828]; // lon, lat (Novosibirsk)
+  
+  // Get user_id from URL parameter or use default
+  function getUserId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('user_id') || '22026';
+  }
+  
+  // Display current user_id in title and UI
+  function updatePageTitle() {
+    const userId = getUserId();
+    document.title = `Персональные рекомендации - User ${userId}`;
+    
+    // Update the skeleton loader title to show current user
+    const skeletonTitle = document.querySelector('.skeleton-title');
+    if (skeletonTitle) {
+      skeletonTitle.innerHTML = `Загружаем персональные рекомендации для пользователя ${userId}<span class="loader-dots"><span class="loader-dot"></span><span class="loader-dot"></span><span class="loader-dot"></span></span>`;
+    }
+    
+    // Update the user ID display
+    const userIdDisplay = document.getElementById('current-user-id');
+    if (userIdDisplay) {
+      userIdDisplay.textContent = userId;
+    }
+  }
 
   // Mock data for elements not available from API
   const AVATARS = [
@@ -216,31 +256,50 @@
   let touchStartY = 0;
   let isSwiping = false;
 
-  function createTagsFromStopFactors(context, slideIndex = 0) {
-    if (!context || !context.stop_factors || !context.stop_factors.length) {
+  function createTagsFromAttribute(attributeGroups, slideIndex = 0) {
+    if (!attributeGroups || !Array.isArray(attributeGroups) || attributeGroups.length === 0) {
       return [{icon: '🍴', text: 'Поесть'}];
     }
     
-    // Map specific stop factor tags to icons
+    // Map specific attribute tags to icons
     const iconMap = {
       'food_service_avg_price': '💳',
       'food_service_assortment_assortment_hamburgers': '🍔',
       'food_service_assortment_assortment_frenchfries': '🍟',
       'food_service_assortment_assortment_nuggets': '🍗',
+      'food_service_assortment_assortment_pizza': '🍕',
+      'food_service_assortment_assortment_pasta': '🍝',
+      'food_service_assortment_assortment_steik': '🥩',
+      'food_service_assortment_assortment_sushi': '🍣',
       'cocktail_bars_types_coffee_take_away': '☕',
       'cocktail_bars_types_tea_take_away': '🍵',
       'cocktail_bars_types_milk_shake': '🥤',
       'covid_homedelivery': '🚚',
       'food_service_details_food_takeaway': '📦',
       'food_service_details_food_kids_menu': '🧒',
+      'food_service_details_food_live_music': '🎵',
+      'food_service_details_food_wine_list': '🍷',
       'additionally_services_wifi': '📶',
       'general_payment_type_card': '💳',
-      'accessible_entrance_accessible_entrance': '♿'
+      'accessible_entrance_accessible_entrance': '♿',
+      'food_service_bar_type_cocktail_bar': '🍸',
+      'food_service_food_european': '🇪🇺',
+      'food_service_food_italian': '🇮🇹',
+      'food_service_food_asian': '🥢',
+      'food_service_food_russian': '🇷🇺'
     };
     
     const tags = [];
     
-    // Show different stop factors based on slide index
+    // Collect all attributes from all groups
+    const allAttributes = [];
+    attributeGroups.forEach(group => {
+      if (group.attributes && Array.isArray(group.attributes)) {
+        allAttributes.push(...group.attributes);
+      }
+    });
+    
+    // Show different attributes based on slide index
     let startIndex, endIndex;
     switch(slideIndex) {
       case 0:
@@ -260,17 +319,17 @@
         endIndex = 2;
     }
     
-    // Take stop factors for current slide
-    const factorsForSlide = context.stop_factors.slice(startIndex, endIndex);
-    for (const factor of factorsForSlide) {
-      const icon = iconMap[factor.tag] || '🏷️';
+    // Take attributes for current slide
+    const attributesForSlide = allAttributes.slice(startIndex, endIndex);
+    for (const attribute of attributesForSlide) {
+      const icon = iconMap[attribute.tag] || '🏷️';
       tags.push({
         icon: icon,
-        text: factor.name
+        text: attribute.name
       });
     }
     
-    // Fallback if no factors for this slide
+    // Fallback if no attributes for this slide
     if (tags.length === 0) {
       return slideIndex === 0 ? [{icon: '🍴', text: 'Поесть'}] : [];
     }
@@ -471,43 +530,69 @@
     return finalMediaArray;
   }
 
-  // API fetch function
+  // API fetch function for personalized recommendations
   async function fetchPlacesData() {
     try {
-      const url = new URL(API_BASE_URL);
-      url.searchParams.append('q', SEARCH_QUERY);
-      url.searchParams.append('location', `${MOSCOW_CENTER[0]},${MOSCOW_CENTER[1]}`);
-      url.searchParams.append('page_size', '50');
-      url.searchParams.append('key', API_KEY);
-      url.searchParams.append('fields', 'items.point,items.address_name,items.name_ex,items.rubrics,items.contact_groups,items.schedule,items.reviews,items.photos,items.cover,items.external_content,items.context');
+      const userId = getUserId();
+      const url = `${API_BASE_URL}/${userId}`;
+      const params = new URLSearchParams({
+        key: API_KEY,
+        segment_id: '1',
+        location: `${NOVOSIBIRSK_CENTER[1]},${NOVOSIBIRSK_CENTER[0]}`, // lat,lon for this API
+        limit: '50'
+      });
 
-      console.log('Fetching from:', url.toString());
+      const fullUrl = `${url}?${params.toString()}`;
+      console.log('Fetching personalized recommendations from:', fullUrl);
       
-      const response = await fetch(url.toString());
+      const response = await fetch(fullUrl);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const data = await response.json();
-      console.log('API Response:', data);
+      // Handle multipart response format
+      const responseText = await response.text();
+      console.log('Raw API Response (first 500 chars):', responseText.substring(0, 500));
       
-      if (data.result && data.result.items && data.result.items.length > 0) {
-        return data.result.items;
+      // Extract JSON from multipart response
+      let data;
+      try {
+        // If it's a multipart response, extract the JSON part
+        if (responseText.includes('Content-Type: application/json')) {
+          const jsonStart = responseText.indexOf('{');
+          const jsonEnd = responseText.lastIndexOf('}') + 1;
+          const jsonString = responseText.substring(jsonStart, jsonEnd);
+          data = JSON.parse(jsonString);
+        } else {
+          // If it's already JSON, parse directly
+          data = JSON.parse(responseText);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse API response:', parseError);
+        throw new Error('Invalid API response format');
+      }
+      
+      console.log('Parsed API Response:', data);
+      
+      if (data.result && data.result.advices && Array.isArray(data.result.advices) && data.result.advices.length > 0) {
+        return data.result.advices;
       } else {
-        throw new Error('No items found in API response');
+        throw new Error('No recommendations found in API response');
       }
     } catch (error) {
-      console.error('Error fetching places data:', error);
+      console.error('Error fetching personalized recommendations:', error);
       throw error;
     }
   }
 
-  // Transform API data to our format
+  // Transform personalized API data to our format
   async function transformApiData(items) {
-    // First pass: create basic data structure
-    companies = items.map((item, index) => {
-      const coords = item.point ? [item.point.lon, item.point.lat] : MOSCOW_CENTER;
+    // First pass: create basic data structure from personalized recommendations
+    companies = items.map((recommendation, index) => {
+      const item = recommendation.catalog; // Extract catalog data from recommendation
+      const reason = recommendation.reason; // Extract recommendation reason
+      const coords = item.point ? [item.point.lon, item.point.lat] : NOVOSIBIRSK_CENTER;
       
       let rating = '4.0';
       // Check for different rating field structures in 2GIS API
@@ -521,24 +606,35 @@
         rating = item.rating.toFixed(1);
       }
       
-      const friends = Array.from({length: Math.floor(Math.random() * 2) + 2}, () => randomFrom(AVATARS));
+      // Use friends activity from recommendation or generate fallback
+      let friends = [];
+      if (recommendation.friends_activity && recommendation.friends_activity.length > 0) {
+        friends = recommendation.friends_activity.map(activity => 
+          activity.user.avatar || randomFrom(AVATARS)
+        ).slice(0, 3);
+      }
+      if (friends.length === 0) {
+        friends = Array.from({length: Math.floor(Math.random() * 2) + 2}, () => randomFrom(AVATARS));
+      }
       
       return {
         id: item.id || `place_${index}`,
         name: item.name_ex?.primary || item.name || `Место ${index + 1}`,
-        address: formatAddress(item.address_name || item.address),
+        address: formatAddress(item.full_address_name || item.address_name || item.address),
         coords: coords,
         photos: getPhotosFromItem(item), // Fallback photos
         friends: friends,
-        tags: createTagsFromStopFactors(item.context),
+        tags: createTagsFromAttribute(item.attribute_groups),
         allTags: {
-          slide0: createTagsFromStopFactors(item.context, 0),
-          slide1: createTagsFromStopFactors(item.context, 1),
-          slide2: createTagsFromStopFactors(item.context, 2)
+          slide0: createTagsFromAttribute(item.attribute_groups, 0),
+          slide1: createTagsFromAttribute(item.attribute_groups, 1),
+          slide2: createTagsFromAttribute(item.attribute_groups, 2)
         },
         rating: rating,
         workingHours: formatWorkingHours(item.schedule),
-        originalData: item
+        recommendationReason: reason?.name || 'Рекомендуем',
+        originalData: item,
+        recommendation: recommendation
       };
     });
 
@@ -650,7 +746,7 @@
   
   const map = new mapgl.Map('map', {
     key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
-    center: MOSCOW_CENTER,
+    center: NOVOSIBIRSK_CENTER,
     zoom: 12,
     style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b',
     zoomControl: false
@@ -686,9 +782,10 @@
   map.on('idle', async () => {
     if (!mapReady) {
       mapReady = true;
+      updatePageTitle(); // Update page title with current user_id
       
       try {
-        // Fetch real data from 2GIS API
+        // Fetch personalized recommendations
         const apiItems = await fetchPlacesData();
         companies = await transformApiData(apiItems);
         
@@ -771,8 +868,8 @@
         }, 800);
         
       } catch (error) {
-        console.error('Failed to load places data:', error);
-        showError('Не удалось загрузить данные о местах. Проверьте подключение к интернету.');
+        console.error('Failed to load personalized recommendations:', error);
+        showError('Не удалось загрузить персональные рекомендации. Проверьте подключение к интернету.');
       }
     }
   });
@@ -873,7 +970,7 @@
           <div class="slide-tags" data-slide-tags></div>
           <div class="slide-friends">
             ${company.friends.slice(0,2).map(f=>`<img class='friend-avatar' src='${f}' alt=''/>`).join('')}
-            <span class="friends-text">Были друзья</span>
+            <span class="friends-text">${company.recommendationReason}</span>
           </div>
         </div>
       </div>
@@ -958,8 +1055,10 @@
       }, { passive: true });
     }
     
-    // Initialize tags for current slide
-    updateSlideContent(index, 0);
+    // Initialize tags for current slide - use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+      updateSlideContent(index, 0);
+    }, 10);
     
     // Start auto-slide for this card
     startAutoSlide(index);
@@ -1120,6 +1219,9 @@
     // Update slide content (tags) based on current photo index
     updateSlideContent(cardIndex, currentPhotoIndex);
     
+    // Auto-play video if we navigated to one
+    autoplayCurrentVideo(cardIndex, currentPhotoIndex);
+    
     // Restart auto-slide if this was user-initiated navigation
     if (!isAutoAdvance) {
       startAutoSlide(cardIndex);
@@ -1261,9 +1363,26 @@
     // Find first video in media array
     const firstVideoIndex = company.media.findIndex(item => item.type === 'video');
     if (firstVideoIndex !== -1) {
-      // Small delay to ensure card is fully rendered
+      // Longer delay to ensure card is fully rendered and in DOM
       setTimeout(() => {
-        playVideo(cardIndex, firstVideoIndex, true);
+        const card = cards[cardIndex];
+        if (card && card.parentNode) {
+          playVideo(cardIndex, firstVideoIndex, true);
+        }
+      }, 300);
+    }
+  }
+  
+  // Auto-play current video when navigating back to it
+  function autoplayCurrentVideo(cardIndex, mediaIndex) {
+    const company = companies[cardIndex];
+    if (!company.media || !company.media[mediaIndex]) return;
+    
+    const mediaItem = company.media[mediaIndex];
+    if (mediaItem.type === 'video') {
+      // Small delay to ensure smooth transition
+      setTimeout(() => {
+        playVideo(cardIndex, mediaIndex, true);
       }, 100);
     }
   }
@@ -1351,11 +1470,15 @@
     // Always highlight marker
     highlightMarker(currentIndex);
     
-    // Auto-play first video on the current (top) card
+    // Ensure tags are displayed on the current (top) card
     if (currentIndex < companies.length) {
-      autoplayFirstVideo(currentIndex);
-      // Prefetch next video for smooth transition
-      prefetchNextVideo(currentIndex);
+      setTimeout(() => {
+        updateSlideContent(currentIndex, 0);
+        // Auto-play first video on the current (top) card
+        autoplayFirstVideo(currentIndex);
+        // Prefetch next video for smooth transition
+        prefetchNextVideo(currentIndex);
+      }, 50);
     }
     
     // Only fly to marker if not skipping animation
@@ -1850,6 +1973,15 @@
         }, 100);
       }
     });
+    
+    // Ensure tags are properly initialized for the top card after animation
+    setTimeout(() => {
+      if (companies.length > 0 && currentIndex < companies.length) {
+        updateSlideContent(currentIndex, 0);
+        // Also trigger autoplay for the top card
+        autoplayFirstVideo(currentIndex);
+      }
+    }, 200);
   }
 
   // 1. Cascade Drop Animation
@@ -2080,6 +2212,9 @@
     localStorage.setItem('hasSeenOnboarding', 'true');
     hasSeenOnboarding = true;
   });
+
+  // Initialize page title and user display on load
+  updatePageTitle();
 
 </script>
 </body>
