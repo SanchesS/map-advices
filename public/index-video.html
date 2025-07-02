@@ -16,8 +16,22 @@
     .map-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,.08)}
     
     .user-info{position:absolute;top:20px;left:20px;z-index:10;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:12px 16px;max-width:200px}
-    .user-id-display{font-size:14px;font-weight:600;color:#333;margin-bottom:4px}
+    .user-id-display,.city-display{font-size:14px;font-weight:600;color:#333;margin-bottom:4px}
     .user-help{font-size:11px;color:#666;line-height:1.3}
+    
+    /* City Selection Modal */
+    .city-selection-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:3000;display:none;align-items:center;justify-content:center;opacity:1;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    .city-selection-modal{background:#fff;border-radius:20px;padding:32px;max-width:400px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+    .city-selection-title{font-size:28px;font-weight:700;color:#1a1a1a;margin:0 0 8px 0;text-align:center}
+    .city-selection-subtitle{font-size:16px;color:#666;margin:0 0 32px 0;text-align:center;line-height:1.4}
+    .city-options{display:flex;flex-direction:column;gap:16px}
+    .city-option{display:flex;align-items:center;padding:20px;border-radius:16px;background:#f8f9fa;cursor:pointer;transition:all 0.3s ease;border:2px solid transparent}
+    .city-option:hover{background:#e9ecef;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.1)}
+    .city-option:active{transform:translateY(0);background:#dee2e6}
+    .city-icon{font-size:32px;margin-right:16px;min-width:48px;text-align:center}
+    .city-info{flex:1}
+    .city-name{font-size:18px;font-weight:600;color:#1a1a1a;margin-bottom:4px}
+    .city-desc{font-size:14px;color:#666;line-height:1.3}
     
     .card-container{position:absolute;left:0;right:0;bottom:0;height:370px;pointer-events:none;display:flex;justify-content:center;align-items:flex-end;z-index:5;padding-bottom:20px;transition:transform 500ms cubic-bezier(0.4,0,0.2,1)}
     .card-container.minimized{transform:translateY(290px)}
@@ -115,8 +129,17 @@
       .card-container.minimized{transform:translateY(306px)}
       .map-controls{top:70px;right:16px}
       .user-info{top:70px;left:16px;max-width:150px;padding:8px 12px}
-      .user-id-display{font-size:12px}
+      .user-id-display,.city-display{font-size:12px}
       .user-help{font-size:10px}
+      
+      /* City Selection Modal Mobile */
+      .city-selection-modal{padding:24px;margin:16px}
+      .city-selection-title{font-size:24px}
+      .city-selection-subtitle{font-size:14px;margin-bottom:24px}
+      .city-option{padding:16px}
+      .city-icon{font-size:28px;margin-right:12px;min-width:40px}
+      .city-name{font-size:16px}
+      .city-desc{font-size:13px}
     }
 
 
@@ -153,13 +176,58 @@
   <div class="map-btn" id="zoom-out">−</div>
 </div>
 
-<!-- User ID display -->
+<!-- User ID and City display -->
 <div class="user-info" id="user-info">
   <div class="user-id-display">
     👤 User: <span id="current-user-id"></span>
   </div>
+  <div class="city-display">
+    🏙️ City: <span id="current-city"></span>
+  </div>
   <div class="user-help">
     <small>Change ?user_id=YOUR_ID in URL</small>
+  </div>
+</div>
+
+<!-- City Selection Modal -->
+<div class="city-selection-overlay" id="city-selection-overlay">
+  <div class="city-selection-modal">
+    <h2 class="city-selection-title">Выберите город</h2>
+    <p class="city-selection-subtitle">Найдите персональные рекомендации в вашем городе</p>
+    
+    <div class="city-options">
+      <div class="city-option" data-city="novosibirsk">
+        <div class="city-icon">🏢</div>
+        <div class="city-info">
+          <div class="city-name">Новосибирск</div>
+          <div class="city-desc">Сибирская столица</div>
+        </div>
+      </div>
+      
+      <div class="city-option" data-city="moscow">
+        <div class="city-icon">🏛️</div>
+        <div class="city-info">
+          <div class="city-name">Москва</div>
+          <div class="city-desc">Столица России</div>
+        </div>
+      </div>
+      
+      <div class="city-option" data-city="spb">
+        <div class="city-icon">🌉</div>
+        <div class="city-info">
+          <div class="city-name">Санкт-Петербург</div>
+          <div class="city-desc">Северная столица</div>
+        </div>
+      </div>
+      
+      <div class="city-option" data-city="ekaterinburg">
+        <div class="city-icon">🏭</div>
+        <div class="city-info">
+          <div class="city-name">Екатеринбург</div>
+          <div class="city-desc">Уральская столица</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -197,7 +265,34 @@
   // Personalized Recommendations API Configuration
   const API_KEY = 'b4080922-5698-4e40-8f50-dc49aa55f3d6';
   const API_BASE_URL = 'https://hybrid-feature-add-frien-v31rgm.api.k8s.2gis.dev/advices/v1/users';
-  const NOVOSIBIRSK_CENTER = [82.8906, 54.9828]; // lon, lat (Novosibirsk)
+  
+  // City configurations
+  const CITIES = {
+    novosibirsk: {
+      name: 'Новосибирск',
+      nameEn: 'Novosibirsk', 
+      center: [82.8906, 54.9828], // lon, lat
+      segment_id: 1
+    },
+    moscow: {
+      name: 'Москва',
+      nameEn: 'Moscow',
+      center: [37.6173, 55.7558], // lon, lat
+      segment_id: 32
+    },
+    spb: {
+      name: 'Санкт-Петербург',
+      nameEn: 'Saint-Petersburg', 
+      center: [30.3609, 59.9311], // lon, lat
+      segment_id: 38
+    },
+    ekaterinburg: {
+      name: 'Екатеринбург',
+      nameEn: 'Ekaterinburg',
+      center: [60.6122, 56.8431], // lon, lat
+      segment_id: 9
+    }
+  };
   
   // Get user_id from URL parameter or use default
   function getUserId() {
@@ -205,21 +300,54 @@
     return urlParams.get('user_id') || '22026';
   }
   
-  // Display current user_id in title and UI
+  // Get selected city from localStorage or URL parameter
+  function getSelectedCity() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCity = urlParams.get('city');
+    
+    if (urlCity && CITIES[urlCity]) {
+      // Save to localStorage for future visits
+      localStorage.setItem('selectedCity', urlCity);
+      return urlCity;
+    }
+    
+    // Check localStorage
+    const savedCity = localStorage.getItem('selectedCity');
+    if (savedCity && CITIES[savedCity]) {
+      return savedCity;
+    }
+    
+    // Default to Novosibirsk
+    return 'novosibirsk';
+  }
+  
+  // Get current city configuration
+  function getCurrentCity() {
+    return CITIES[getSelectedCity()];
+  }
+  
+  // Display current user_id and city in title and UI
   function updatePageTitle() {
     const userId = getUserId();
-    document.title = `Персональные рекомендации - User ${userId}`;
+    const city = getCurrentCity();
+    document.title = `${city.name} - User ${userId}`;
     
-    // Update the skeleton loader title to show current user
+    // Update the skeleton loader title to show current city
     const skeletonTitle = document.querySelector('.skeleton-title');
     if (skeletonTitle) {
-      skeletonTitle.innerHTML = `Загружаем персональные рекомендации для пользователя ${userId}<span class="loader-dots"><span class="loader-dot"></span><span class="loader-dot"></span><span class="loader-dot"></span></span>`;
+      skeletonTitle.innerHTML = `Загружаем рекомендации для ${city.name}<span class="loader-dots"><span class="loader-dot"></span><span class="loader-dot"></span><span class="loader-dot"></span></span>`;
     }
     
     // Update the user ID display
     const userIdDisplay = document.getElementById('current-user-id');
     if (userIdDisplay) {
       userIdDisplay.textContent = userId;
+    }
+    
+    // Update the city display
+    const cityDisplay = document.getElementById('current-city');
+    if (cityDisplay) {
+      cityDisplay.textContent = city.name;
     }
   }
 
@@ -534,11 +662,12 @@
   async function fetchPlacesData() {
     try {
       const userId = getUserId();
+      const city = getCurrentCity();
       const url = `${API_BASE_URL}/${userId}`;
       const params = new URLSearchParams({
         key: API_KEY,
-        segment_id: '1',
-        location: `${NOVOSIBIRSK_CENTER[1]},${NOVOSIBIRSK_CENTER[0]}`, // lat,lon for this API
+        segment_id: city.segment_id.toString(),
+        location: `${city.center[1]},${city.center[0]}`, // lat,lon for this API
         limit: '50'
       });
 
@@ -588,11 +717,12 @@
 
   // Transform personalized API data to our format
   async function transformApiData(items) {
+    const city = getCurrentCity();
     // First pass: create basic data structure from personalized recommendations
     companies = items.map((recommendation, index) => {
       const item = recommendation.catalog; // Extract catalog data from recommendation
       const reason = recommendation.reason; // Extract recommendation reason
-      const coords = item.point ? [item.point.lon, item.point.lat] : NOVOSIBIRSK_CENTER;
+      const coords = item.point ? [item.point.lon, item.point.lat] : city.center;
       
       let rating = '4.0';
       // Check for different rating field structures in 2GIS API
@@ -746,7 +876,7 @@
   
   const map = new mapgl.Map('map', {
     key: '10153539-2026-4a0c-b7a3-52ddb3fed411',
-    center: NOVOSIBIRSK_CENTER,
+    center: getCurrentCity().center,
     zoom: 12,
     style: 'c080bb6a-8134-4993-93a1-5b4d8c36a59b',
     zoomControl: false
@@ -782,7 +912,13 @@
   map.on('idle', async () => {
     if (!mapReady) {
       mapReady = true;
-      updatePageTitle(); // Update page title with current user_id
+      
+      // Check if city is selected before proceeding
+      if (!checkCitySelection()) {
+        return; // Exit if city selection is shown
+      }
+      
+      updatePageTitle(); // Update page title with current user_id and city
       
       try {
         // Fetch personalized recommendations
@@ -2205,6 +2341,57 @@
       setFinalStackState(cards);
     }, totalAnimationTime);
   }
+
+  // City selection logic
+  function showCitySelection() {
+    const overlay = document.getElementById('city-selection-overlay');
+    overlay.style.display = 'flex';
+  }
+  
+  function hideCitySelection() {
+    const overlay = document.getElementById('city-selection-overlay');
+    overlay.style.display = 'none';
+  }
+  
+  function selectCity(cityKey) {
+    localStorage.setItem('selectedCity', cityKey);
+    hideCitySelection();
+    
+    // Update page title and reload the app with new city
+    updatePageTitle();
+    
+    // Reset the map center for the new city
+    const newCity = CITIES[cityKey];
+    map.setCenter(newCity.center, { duration: 800 });
+    
+    // Restart the app with new city data
+    window.location.reload();
+  }
+  
+  // Show city selection on first visit or if no city selected
+  function checkCitySelection() {
+    const selectedCity = getSelectedCity();
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // If no city in URL and no saved city, show selection
+    if (!urlParams.get('city') && !localStorage.getItem('selectedCity')) {
+      showCitySelection();
+      return false; // Don't proceed with app initialization
+    }
+    
+    return true; // Proceed with app initialization
+  }
+  
+  // Add city selection event listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    const cityOptions = document.querySelectorAll('.city-option');
+    cityOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const cityKey = option.dataset.city;
+        selectCity(cityKey);
+      });
+    });
+  });
 
   // Dismiss onboarding overlay on click
   document.getElementById('onboarding-overlay').addEventListener('click', function() {
