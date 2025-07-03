@@ -264,7 +264,7 @@
 <script>
   // Personalized Recommendations API Configuration
   const API_KEY = 'b4080922-5698-4e40-8f50-dc49aa55f3d6';
-  const API_BASE_URL = 'https://hybrid-feature-add-frien-v31rgm.api.k8s.2gis.dev/advices/v1/users';
+  const API_BASE_URL = 'https://hybrid.api.k8s.2gis.dev/advices/v1/users';
   
   // City configurations
   const CITIES = {
@@ -1940,8 +1940,8 @@
     // Offset by half the card height plus a bit more to account for the visible area center
     const offsetRatio = ((cardHeight / 2) + (visibleHeight / 4)) / mapHeight;
     
-    // For zoom 15, calculate the latitude offset
-    const targetZoom = 15;
+    // For zoom 15.75, calculate the latitude offset
+    const targetZoom = 15.75;
     const latOffset = offsetRatio * (180 / Math.pow(2, targetZoom)) * 0.7;
     
     // Apply offset to latitude (move map center down to push marker up)
@@ -1999,8 +1999,8 @@
     });
     
     // Ensure proper zoom level
-    if (zoom < 15) {
-      map.setZoom(15, {
+    if (zoom < 15.75) {
+      map.setZoom(15.75, {
         duration: bouncy ? 800 : 400,
         easing: bouncy ? 'easeOutBack' : 'easeInOutCubic'
       });
