@@ -109,14 +109,104 @@
     .slide-action.selected{color:#4CAF50}
     .slide-action svg{width:28px;height:28px;fill:currentColor}
     
-    .marker{width:64px;height:64px;border-radius:20px;background:#fff;border:4px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,0.15);transition:all .3s ease;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;opacity:0;transform:scale(0);animation:marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards}
-    .marker.passive{opacity:0.85;transform:scale(0.85)}
-    .marker.active{border-color:#4CAF50;box-shadow:0 0 0 6px rgba(76,175,80,0.2),0 4px 16px rgba(0,0,0,.12);transform:scale(1);z-index:10}
-    .marker-img{width:56px;height:56px;border-radius:16px;object-fit:cover;object-position:center}
-    .marker-badge{position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+    /* Base marker container */
+    .marker-container{position:relative;display:block;cursor:pointer;width:300px;height:200px}
+    
+    /* Marker circle/pin shape */
+    .marker{width:80px;height:80px;background:#fff;transition:all .3s ease;display:flex;align-items:center;justify-content:center;position:absolute;top:0;left:0;opacity:0;transform:scale(0);animation:marker-pop 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards}
+    
+    /* Inactive marker: round shape */
+    .marker.passive{
+      border-radius:50%;
+      border:1px solid #000; /* Reduced from 3px to 1px */
+      box-shadow:0 0 0 1px #fff,0 4px 12px rgba(0,0,0,0.15); /* Reduced from 2px to 1px */
+      opacity:0.9;
+      transform:scale(0.9)
+    }
+    
+    /* Active marker: pin shape with foot at bottom center */
+    .marker.active{
+      border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg) scale(1);
+      border:2px solid #4CAF50; /* Reduced from 3px to 2px */
+      box-shadow:0 0 0 1px #fff,0 0 0 6px rgba(76,175,80,0.2),0 6px 16px rgba(0,0,0,.15); /* Reduced white border and green glow */
+      opacity:1;
+      z-index:10;
+      transform-origin:50% 50%
+    }
+    
+    .marker-img{width:60px;height:60px;border-radius:50%;object-fit:cover;object-position:center}
+    .marker.active .marker-img{transform:rotate(45deg)}
+    
+    .marker-badge{position:absolute;bottom:-12px;right:-12px;background:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:3}
+    .marker.active .marker-badge{transform:rotate(45deg);bottom:-10px;right:-10px}
     .marker-badge-inner{background:#4CAF50;color:#fff;font-size:14px;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
     
-    @keyframes marker-pop{to{opacity:0.85;transform:scale(0.85)}}
+    /* Marker text styles */
+    .marker-text{
+      position:absolute;
+      pointer-events:none;
+      z-index:100;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      font-size:11px; /* 20% smaller than original 14px */
+      line-height:1.3
+    }
+    
+    /* Text positioning classes */
+    .marker-text.passive-text-position,
+    .marker-text{
+      top:85px;
+      left:-30px;
+      text-align:center;
+      min-width:140px;
+      max-width:200px
+    }
+    
+    .marker-text.active-text-position{
+      left:85px !important;
+      top:10px !important;
+      text-align:left !important;
+      min-width:160px !important;
+      max-width:220px !important
+    }
+    
+    /* Combined fused text block */
+    .marker-text-block{
+      background:rgba(255,255,255,0.98);
+      padding:6px 10px;
+      border-radius:10px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.2);
+      border:1px solid rgba(0,0,0,0.15);
+      display:block;
+      max-width:140px
+    }
+    
+    .marker-company-name{
+      font-size:11px; /* 20% smaller than original 14px */
+      font-weight:700;
+      color:#1a1a1a;
+      margin:0 0 2px 0;
+      line-height:1.3;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    
+    .marker-details{
+      font-size:10px; /* 20% smaller than original 12px */
+      color:#666;
+      margin:0;
+      line-height:1.3;
+      /* Allow multiline for reason text */
+      white-space:normal;
+      word-wrap:break-word;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+    }
+    
+    @keyframes marker-pop{to{opacity:0.9;transform:scale(0.9)}}
     
     .error-message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);max-width:300px;text-align:center;z-index:1000}
     .error-title{color:#e74c3c;font-weight:600;margin-bottom:8px}
@@ -902,11 +992,112 @@
     }
   }
   
+  // Overlap prevention system
+  function applyOverlapPrevention() {
+    if (!markers.length || !mapReady) {
+      console.log('Overlap prevention skipped: no markers or map not ready');
+      return;
+    }
+    
+    console.log('Applying overlap prevention for', markers.length, 'markers');
+    
+    const currentZoom = map.getZoom();
+    const minDistance = Math.max(120, 250 - (currentZoom - 10) * 30); // Increased base distance
+    
+    console.log('Current zoom:', currentZoom, 'Min distance:', minDistance);
+    
+    // Reset all markers to visible first
+    markers.forEach(marker => {
+      if (marker && marker.container) {
+        marker.container.style.display = 'block';
+      }
+    });
+    
+    // Convert all marker coordinates to screen positions
+    const markerScreenPositions = [];
+    
+    for (let idx = 0; idx < markers.length; idx++) {
+      const marker = markers[idx];
+      if (!marker || !marker.coords) continue;
+      
+      try {
+        // Use map.project to convert lng/lat to screen pixels
+        const point = map.project(marker.coords);
+        
+        if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+          markerScreenPositions.push({
+            idx,
+            x: point.x,
+            y: point.y,
+            marker,
+            visible: true,
+            priority: idx // Lower index = higher priority (first in recommendations)
+          });
+        }
+      } catch (e) {
+        console.error('Error projecting marker', idx, e);
+      }
+    }
+    
+    console.log('Successfully projected', markerScreenPositions.length, 'markers');
+    
+    // Sort by priority (lower index = higher priority)
+    markerScreenPositions.sort((a, b) => a.priority - b.priority);
+    
+    let hiddenCount = 0;
+    
+    // Hide overlapping markers with lower priority
+    for (let i = 0; i < markerScreenPositions.length; i++) {
+      const current = markerScreenPositions[i];
+      if (!current.visible) continue;
+      
+      for (let j = i + 1; j < markerScreenPositions.length; j++) {
+        const other = markerScreenPositions[j];
+        if (!other.visible) continue;
+        
+        const distance = Math.sqrt(
+          Math.pow(current.x - other.x, 2) + 
+          Math.pow(current.y - other.y, 2)
+        );
+        
+        if (distance < minDistance) {
+          // Hide the lower priority marker
+          other.visible = false;
+          other.marker.container.style.display = 'none';
+          hiddenCount++;
+          console.log(`Hidden marker ${other.idx} (distance: ${distance.toFixed(1)}px from marker ${current.idx})`);
+        }
+      }
+    }
+    
+    console.log(`Overlap prevention complete: ${hiddenCount} markers hidden, ${markerScreenPositions.length - hiddenCount} visible`);
+    
+    // Ensure visible markers are displayed
+    markerScreenPositions.forEach(pos => {
+      if (pos.visible && pos.marker.container) {
+        pos.marker.container.style.display = 'block';
+      }
+    });
+  }
+
   // Add map interaction listeners
   map.on('movestart', minimizeCard);  // movestart is triggered on any map movement including drag
   map.on('zoomstart', minimizeCard);
   map.on('pitchstart', minimizeCard);
   map.on('rotatestart', minimizeCard);
+  
+  // Reapply overlap prevention when map changes
+  map.on('zoomend', () => {
+    if (mapReady && markers.length > 0) {
+      setTimeout(() => applyOverlapPrevention(), 100);
+    }
+  });
+  
+  map.on('moveend', () => {
+    if (mapReady && markers.length > 0) {
+      setTimeout(() => applyOverlapPrevention(), 100);
+    }
+  });
   
   // Initialize after map is ready
   map.on('idle', async () => {
@@ -933,15 +1124,43 @@
         
         // Create all markers immediately but hidden
         companies.forEach((c, idx) => {
+          const container = document.createElement('div');
+          container.className = 'marker-container';
+          
           const el = document.createElement('div');
           el.className = 'marker passive';
           el.style.opacity = '0';
           el.style.transform = 'scale(0)';
+          
           const markerImageSrc = c.markerPhoto || c.photos[0] || randomFrom(FALLBACK_PHOTOS);
-          el.innerHTML = `<img class="marker-img" src="${markerImageSrc}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
-            <div class="marker-badge"><div class="marker-badge-inner">★</div></div>`;
-          const mk = new mapgl.HtmlMarker(map, {coordinates: c.coords, html: el});
-          markers[idx] = {marker: mk, el, coords: c.coords};
+          
+          // Get first attribute for active marker text
+          const firstAttribute = c.allTags && c.allTags.slide0 && c.allTags.slide0.length > 0 
+            ? c.allTags.slide0[0].text 
+            : 'Место';
+          
+          el.innerHTML = `
+            <img class="marker-img" src="${markerImageSrc}" alt="" onerror="this.src='${randomFrom(FALLBACK_PHOTOS)}'"/>
+          `;
+          
+          const textEl = document.createElement('div');
+          textEl.className = 'marker-text passive-text-position';
+          textEl.innerHTML = `
+            <div class="marker-text-block">
+              <div class="marker-company-name">${c.name}</div>
+              <div class="marker-details inactive-text" style="display:block;">${c.recommendationReason}</div>
+              <div class="marker-details active-text" style="display:none;">⭐ ${c.rating} • ${firstAttribute}</div>
+            </div>
+          `;
+          
+          container.appendChild(el);
+          container.appendChild(textEl);
+          const mk = new mapgl.HtmlMarker(map, {
+            coordinates: c.coords, 
+            html: container,
+            anchor: [40, 70] // Center bottom of the marker for pin point
+          });
+          markers[idx] = {marker: mk, el, coords: c.coords, container, textEl};
         });
         
         // Animate markers appearing
@@ -990,17 +1209,31 @@
           });
           
           if (markers[0]) {
-            markers[0].el.style.opacity = '0.85';
-            markers[0].el.style.transform = 'scale(0.85)';
+            markers[0].el.style.opacity = '1';
+            markers[0].el.style.transform = 'rotate(-45deg) scale(1)';
             markers[0].el.classList.remove('passive');
             markers[0].el.classList.add('active');
-          }
-          
-          flyToFirstMarker();
-          
-          setTimeout(() => {
-            isInitializing = false;
-          }, 1000);
+            
+            // Switch text display for active state
+            const inactiveText = markers[0].textEl.querySelector('.inactive-text');
+            const activeText = markers[0].textEl.querySelector('.active-text');
+            if (inactiveText) inactiveText.style.display = 'none';
+            if (activeText) activeText.style.display = 'block';
+            
+                      // Apply active text positioning class
+          markers[0].textEl.classList.add('active-text-position');
+        }
+        
+        flyToFirstMarker();
+        
+        // Apply overlap prevention after markers are fully set up
+        setTimeout(() => {
+          applyOverlapPrevention();
+        }, 500);
+        
+        setTimeout(() => {
+          isInitializing = false;
+        }, 1000);
         }, 800);
         
       } catch (error) {
@@ -1911,11 +2144,33 @@
     if (!markers[idx]) return;
     markers.forEach((m,i)=>{
       if(m && i===idx){
+        // Set as active marker
         m.el.classList.remove('passive');
         m.el.classList.add('active');
+        
+        // Switch text display for active state
+        const inactiveText = m.textEl.querySelector('.inactive-text');
+        const activeText = m.textEl.querySelector('.active-text');
+        if (inactiveText) inactiveText.style.display = 'none';
+        if (activeText) activeText.style.display = 'block';
+        
+        // Apply active text positioning
+        m.textEl.classList.add('active-text-position');
+        m.textEl.classList.remove('passive-text-position');
       } else if(m) {
+        // Set as passive marker
         m.el.classList.remove('active');
         m.el.classList.add('passive');
+        
+        // Switch text display for passive state
+        const inactiveText = m.textEl.querySelector('.inactive-text');
+        const activeText = m.textEl.querySelector('.active-text');
+        if (inactiveText) inactiveText.style.display = 'block';
+        if (activeText) activeText.style.display = 'none';
+        
+        // Apply passive text positioning
+        m.textEl.classList.add('passive-text-position');
+        m.textEl.classList.remove('active-text-position');
       }
     });
   }
