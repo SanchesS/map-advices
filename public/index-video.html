@@ -66,6 +66,9 @@
     .slide-header{padding:20px 20px 16px;background:#fff}
     .slide-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
     .slide-title{font-size:24px;font-weight:700;margin:0;color:#1a1a1a}
+    .slide-header{cursor:pointer;transition:all 0.2s ease;position:relative}
+    .slide-header:hover{background:#f8f9fa;transform:translateY(-1px)}
+    .slide-header:active{background:#f0f1f2;transform:translateY(0)}
     .slide-rating{display:flex;align-items:center;gap:4px;font-size:16px;font-weight:600;color:#333}
     .slide-rating svg{width:16px;height:16px;fill:#FFB800}
     .slide-address{font-size:14px;color:#666;margin:0;line-height:1.4}
@@ -1125,6 +1128,15 @@
         </div>
       </div>
     `;
+    
+    // Add company header click handler
+    const slideHeader = card.querySelector('.slide-header');
+    if (slideHeader) {
+      slideHeader.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card interaction
+        window.open(`https://2gis.ru/firm/${company.id}`, '_blank');
+      });
+    }
     
     // Add photo/video navigation handlers
     const photoNavs = card.querySelectorAll('.photo-nav');
