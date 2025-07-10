@@ -815,11 +815,11 @@
       const coords = item.point ? [item.point.lon, item.point.lat] : city.center;
       
       let rating = '4.0';
-      // Check for different rating field structures in 2GIS API
-      if (item.reviews && typeof item.reviews.rating === 'number') {
-        rating = item.reviews.rating.toFixed(1);
-      } else if (item.reviews && item.reviews.general_rating && typeof item.reviews.general_rating === 'number') {
+      // Check for different rating field structures in 2GIS API - prioritizing general_rating
+      if (item.reviews && item.reviews.general_rating && typeof item.reviews.general_rating === 'number') {
         rating = item.reviews.general_rating.toFixed(1);
+      } else if (item.reviews && typeof item.reviews.rating === 'number') {
+        rating = item.reviews.rating.toFixed(1);
       } else if (item.reviews && item.reviews.average_rating && typeof item.reviews.average_rating === 'number') {
         rating = item.reviews.average_rating.toFixed(1);
       } else if (typeof item.rating === 'number') {
