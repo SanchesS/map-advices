@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Travel Discovery - Final Refined</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #000;
+            color: white;
+            overscroll-behavior: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: radial-gradient(circle at 50% 50%, #151921 0%, #000000 100%);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; 
+        }
+
+        .header-content {
+            padding: 60px 20px 20px 20px;
+            text-align: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+            transition: opacity 0.6s ease;
+        }
+
+        h1 {
+            font-size: clamp(28px, 5vw, 40px);
+            font-weight: 800;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.02em;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            color: #fff;
+        }
+
+        p {
+            font-size: clamp(16px, 4vw, 18px);
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0 auto;
+            max-width: 85%;
+            line-height: 1.4;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .bottom-action {
+            padding: 0 20px 50px 20px; 
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            box-sizing: border-box;
+            pointer-events: auto;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+        }
+
+        button.primary-btn {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 16px 32px;
+            font-size: 17px;
+            font-weight: 700;
+            border-radius: 100px;
+            cursor: pointer;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+            width: 100%;
+            max-width: 350px;
+            display: none;
+        }
+
+        button.primary-btn.visible {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        button.primary-btn:active {
+            transform: scale(0.96);
+        }
+
+        #permission-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            background: rgba(30, 30, 30, 0.90);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            width: 80%;
+            max-width: 320px;
+            padding: 24px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 10;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: auto;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+
+        #permission-modal.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #permission-modal h3 { margin: 0 0 10px 0; font-size: 19px; font-weight: 700; }
+        #permission-modal p { font-size: 15px; color: #bbb; margin-bottom: 24px; line-height: 1.4; }
+        
+        .modal-actions {
+            display: flex;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 15px;
+        }
+        .modal-btn {
+            background: none; border: none; width: 50%;
+            font-size: 17px; cursor: pointer; color: #0A84FF;
+            padding: 10px 0;
+        }
+        .modal-btn.bold { font-weight: 600; }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="header-content" id="header-text">
+            <h1 id="main-title">The world is waiting.</h1>
+            <p id="sub-text">Start your journey today.</p>
+        </div>
+
+        <div class="bottom-action">
+            <button id="action-btn" class="primary-btn">Find Spots Near Me</button>
+        </div>
+    </div>
+
+    <div id="permission-modal">
+        <h3>Use your location?</h3>
+        <p>This allows us to find the best hidden gems right where you are.</p>
+        <div class="modal-actions">
+            <button class="modal-btn">Deny</button>
+            <button class="modal-btn bold" id="btn-allow">Allow</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <script>
+        // --- EXTENDED DATASET ---
+        // 1. Global List (Chaos Phase) - Expanded to 80 coords
+        const globalCoords = [
+            // N. America
+            [40.7, -74.0], [34.0, -118.2], [41.8, -87.6], [25.7, -80.1], [47.6, -122.3], [32.7, -96.7], [39.7, -104.9], [33.4, -112.0], [19.4, -99.1], [45.5, -73.5], [43.6, -79.3],
+            // S. America
+            [-23.5, -46.6], [-34.6, -58.3], [-12.0, -77.0], [4.7, -74.0], [-33.4, -70.6], [-0.1, -78.4], [-15.7, -47.9],
+            // Europe
+            [51.5, -0.1], [48.8, 2.3], [52.5, 13.4], [41.9, 12.4], [40.4, -3.7], [55.7, 37.6], [59.3, 18.0], [55.6, 12.5], [48.2, 16.3], [52.3, 4.9], [45.4, 9.1], [38.7, -9.1], [50.0, 14.4], [47.4, 19.0], [37.9, 23.7], [53.3, -6.2],
+            // Asia
+            [35.6, 139.6], [39.9, 116.4], [31.2, 121.4], [13.7, 100.5], [1.3, 103.8], [37.5, 126.9], [28.6, 77.2], [19.0, 72.8], [25.2, 55.2], [22.3, 114.1], [3.1, 101.6], [10.8, 106.6], [14.5, 120.9], [24.7, 46.6], [35.6, 51.3],
+            // Africa
+            [30.0, 31.2], [6.5, 3.3], [-1.2, 36.8], [-33.9, 18.4], [33.5, -7.6], [9.0, 38.7], [5.6, -0.1],
+            // Oceania
+            [-33.8, 151.2], [-37.8, 144.9], [-36.8, 174.7]
+        ];
+
+        // 2. Targeted Lists (Phase 2) - Focus on US & Europe
+        const usCoords = [
+            [40.7, -74.0], [34.0, -118.2], [25.7, -80.1], [47.6, -122.3], 
+            [41.8, -87.6], [30.2, -97.7], [39.7, -104.9], [37.7, -122.4],
+            [36.1, -115.1], [29.9, -90.0]
+        ];
+        
+        const euCoords = [
+            [48.8, 2.3], [51.5, -0.1], [41.9, 12.4], [40.4, -3.7], 
+            [52.3, 4.9], [52.5, 13.4], [38.7, -9.1], [48.2, 16.3],
+            [47.3, 8.5], [43.7, 7.2]
+        ];
+
+        const config = {
+            globeRadius: 5,
+            paris: { lat: 48.8566, lon: 2.3522 }
+        };
+
+        let scene, camera, renderer, globeGroup, activeMarkers = [];
+        let isRotating = true;
+        let isMobile = false;
+
+        // Atmosphere Shaders
+        const vertexShader = `
+            varying vec3 vNormal;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        const fragmentShader = `
+            varying vec3 vNormal;
+            void main() {
+                float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 4.0);
+                gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity * 1.5;
+            }
+        `;
+
+        function init() {
+            scene = new THREE.Scene();
+            checkDevice();
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            updateCameraPosition();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.1);
+            scene.add(ambient);
+            const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+            sun.position.set(10, 8, 12); // Sun slightly higher
+            scene.add(sun);
+            const rimLight = new THREE.SpotLight(0x3366ff, 5);
+            rimLight.position.set(-10, 10, -10);
+            rimLight.lookAt(0,0,0);
+            scene.add(rimLight);
+
+            createEarth();
+            createAtmosphere();
+            createStars();
+
+            // --- INITIAL POSITION ---
+            // 1. Rotate Y (Longitude): -1.5 radians puts the Atlantic/Europe central.
+            globeGroup.rotation.y = -1.5; 
+            // 2. Rotate X (Latitude): Tilt 0.35 radians DOWN to show Northern Hemisphere (Europe/US)
+            globeGroup.rotation.x = 0.35; 
+
+            animate();
+            startStory();
+        }
+
+        function checkDevice() {
+            isMobile = window.innerWidth < 768;
+        }
+
+        function updateCameraPosition() {
+            const aspect = window.innerWidth / window.innerHeight;
+            if (aspect < 0.8) {
+                camera.position.z = 21; // Further back on mobile for better framing
+            } else {
+                camera.position.z = 13;
+            }
+        }
+
+        function createEarth() {
+            globeGroup = new THREE.Group();
+            scene.add(globeGroup);
+            const loader = new THREE.TextureLoader();
+            const map = loader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+            const bump = loader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+            
+            const mat = new THREE.MeshStandardMaterial({
+                map: map,
+                bumpMap: bump,
+                bumpScale: 0.05,
+                roughness: 0.6,
+                metalness: 0.1
+            });
+            globeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(config.globeRadius, 64, 64), mat));
+        }
+
+        function createAtmosphere() {
+            const mat = new THREE.ShaderMaterial({
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                transparent: true
+            });
+            globeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(config.globeRadius * 1.15, 64, 64), mat));
+        }
+
+        function createStars() {
+            const geo = new THREE.BufferGeometry();
+            const pos = [];
+            for(let i=0; i<1500; i++) {
+                pos.push((Math.random()-0.5)*150, (Math.random()-0.5)*150, (Math.random()-0.5)*150);
+            }
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({color: 0xffffff, size: 0.15, transparent: true, opacity: 0.5});
+            scene.add(new THREE.Points(geo, mat));
+        }
+
+        function createEmojiSprite(emoji, scale) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.font = '150px "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 8;
+            ctx.fillText(emoji, 128, 128);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, toneMapped: false });
+            const sprite = new THREE.Sprite(mat);
+            
+            // Adjust scale logic: Mobile generally needs slightly smaller to fit more
+            const finalScale = isMobile ? scale * 0.9 : scale;
+            sprite.scale.set(finalScale, finalScale, finalScale);
+            sprite.userData = { targetScale: finalScale };
+            return sprite;
+        }
+
+        function addMarker(lat, lon, emoji, size=1.5) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            const r = config.globeRadius + 0.1;
+            const x = -(r * Math.sin(phi) * Math.cos(theta));
+            const z = (r * Math.sin(phi) * Math.sin(theta));
+            const y = (r * Math.cos(phi));
+
+            const sprite = createEmojiSprite(emoji, size);
+            sprite.position.set(x, y, z);
+            sprite.scale.set(0,0,0);
+            globeGroup.add(sprite);
+            activeMarkers.push(sprite);
+            
+            new TWEEN.Tween(sprite.scale)
+                .to({ x: sprite.userData.targetScale, y: sprite.userData.targetScale, z: sprite.userData.targetScale }, 600 + Math.random()*300)
+                .easing(TWEEN.Easing.Back.Out)
+                .start();
+        }
+
+        // --- NARRATIVE ---
+        function startStory() {
+            setTimeout(() => {
+                document.getElementById('main-title').innerText = "Millions of places to discover...";
+                
+                // 1. Chaos Phase: Spawn 2x markers (approx 60-70)
+                // We loop through global coords and randomize order
+                const shuffled = globalCoords.sort(() => 0.5 - Math.random());
+                const limit = isMobile ? 60 : 80; // More markers!
+                
+                shuffled.slice(0, limit).forEach(c => {
+                    const e = ['📍','📍','🗺️'][Math.floor(Math.random()*3)];
+                    // Randomize scale slightly for depth
+                    addMarker(c[0], c[1], e, 0.8 + Math.random() * 0.4); 
+                });
+
+                setTimeout(phase3_Filter, 3500);
+            }, 2000);
+        }
+
+        function phase3_Filter() {
+            document.getElementById('main-title').innerText = "...we find the best ones for you.";
+            document.getElementById('sub-text').innerText = "Curated & rated for your vibe.";
+
+            // Fade Chaos
+            activeMarkers.forEach(m => {
+                new TWEEN.Tween(m.scale).to({x:0,y:0}, 400)
+                    .onComplete(()=>globeGroup.remove(m)).start();
+            });
+            activeMarkers = [];
+
+            // 2. Best Phase: Target Europe and US specifically
+            setTimeout(() => {
+                // Add US Markers
+                usCoords.forEach(c => addMarker(c[0], c[1], '⭐', 1.4));
+                // Add EU Markers
+                euCoords.forEach(c => addMarker(c[0], c[1], '❤️', 1.4));
+            }, 500);
+
+            setTimeout(() => {
+                document.getElementById('main-title').innerText = "Start where you are.";
+                document.getElementById('sub-text').innerText = "";
+                document.getElementById('action-btn').classList.add('visible');
+                document.getElementById('action-btn').onclick = phase5_Ask;
+            }, 3500);
+        }
+
+        function phase5_Ask() {
+            isRotating = false;
+            document.getElementById('permission-modal').classList.add('show');
+            document.getElementById('canvas-container').style.filter = "blur(8px)";
+            document.getElementById('header-text').style.opacity = "0";
+            document.getElementById('action-btn').style.opacity = "0";
+        }
+
+        document.getElementById('btn-allow').onclick = phase6_Reveal;
+
+        function phase6_Reveal() {
+            const ui = {
+                modal: document.getElementById('permission-modal'),
+                canvas: document.getElementById('canvas-container'),
+                title: document.getElementById('main-title'),
+                sub: document.getElementById('sub-text'),
+                btn: document.getElementById('action-btn'),
+                header: document.getElementById('header-text')
+            };
+
+            ui.modal.classList.remove('show');
+            ui.canvas.style.filter = "none";
+            activeMarkers.forEach(m => globeGroup.remove(m));
+            activeMarkers = [];
+
+            // Rotation Logic
+            const tLat = config.paris.lat;
+            const tLon = config.paris.lon;
+            const tY = -tLon * (Math.PI/180) - (Math.PI/2);
+            const tX = tLat * (Math.PI/180);
+            
+            // Shortest path
+            let curY = globeGroup.rotation.y % (Math.PI * 2);
+            let diff = tY - curY;
+            if (diff > Math.PI) diff -= Math.PI * 2;
+            if (diff < -Math.PI) diff += Math.PI * 2;
+
+            // Animate Rotation (X and Y)
+            new TWEEN.Tween(globeGroup.rotation)
+                .to({ x: tX, y: globeGroup.rotation.y + diff }, 2000)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .start();
+
+            // Smart Zoom: Stay slightly further back so spread markers fit
+            const zoomTarget = isMobile ? config.globeRadius + 8.5 : config.globeRadius + 5.0;
+
+            new TWEEN.Tween(camera.position)
+                .to({ z: zoomTarget }, 2000)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onComplete(() => {
+                    showLocalMarkers();
+                    ui.header.style.opacity = "1";
+                    ui.title.innerText = "Welcome to Paris!";
+                    ui.sub.innerText = "Here are 5 top spots nearby.";
+                    ui.btn.innerText = "Start Exploring";
+                    ui.btn.style.opacity = "1";
+                    ui.btn.onclick = () => alert("Go to App Home");
+                })
+                .start();
+        }
+
+        function showLocalMarkers() {
+            const items = ['🥐', '🍷', '🎨', '📸'];
+            
+            // SCATTER LOGIC:
+            // 1. Increased radius to 7.0 degrees (was 3.0/4.0) to prevent overlapping
+            // 2. Reduced marker size (1.6 -> 1.2)
+            const radius = 7.0; 
+            const centerLat = config.paris.lat;
+            const centerLon = config.paris.lon;
+
+            // Center (YOU)
+            addMarker(centerLat, centerLon, '❤️', 1.6);
+
+            // Surroundings
+            items.forEach((emoji, i) => {
+                // Offset angle so they don't line up perfectly grid-like
+                const angle = (i / items.length) * Math.PI * 2 + (Math.PI/4);
+                
+                const dLat = Math.cos(angle) * radius; 
+                const dLon = Math.sin(angle) * radius * 1.5; 
+
+                setTimeout(() => {
+                    // Smaller scale for surrounding items
+                    addMarker(centerLat + dLat, centerLon + dLon, emoji, 1.2);
+                }, i * 100 + 200);
+            });
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            if(isRotating && globeGroup) globeGroup.rotation.y += 0.0008; 
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            checkDevice();
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            updateCameraPosition();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
